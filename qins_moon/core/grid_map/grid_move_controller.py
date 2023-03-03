@@ -37,6 +37,10 @@ class GridStaticMoveController(IGridMoveControllerInterface):
         super().__init__(movement, block_size)
         self._gridRoad = []
 
+    @property
+    def is_road_finished(self):
+        return not self._nextPoint and not self._gridRoad
+
     def set_task(self, road):
         self._gridRoad = road
         self._sleepTime = 0
@@ -60,16 +64,17 @@ class GridStaticMoveController(IGridMoveControllerInterface):
         moving_state = self._update_next_point(delta_time)
         if moving_state == 1:
             return 3
-        elif self._gridRoad:
+        elif moving_state == 0:
+            if not self._gridRoad:
+                self._pub_task_finished()
+                return
+        elif self._gridRoad:  # moving_state == 3
             while self._gridRoad:  # 剔除重复的移动点
                 if self._gridRoad[0] == self._gridLoc:
                     self._gridRoad.pop(0)
                 else:
                     break
 
-            if not self._gridRoad:  # 到达道路的终点
-                self._pub_task_finished()
-                return 0
         else:
             return
 

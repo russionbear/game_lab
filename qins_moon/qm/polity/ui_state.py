@@ -4,142 +4,22 @@
 # @Time      :21/02/2023
 # @Author    :russionbear
 # @Function  :function
+# city info:
+# military controller
+# actions wait, attack
+
+from typing import Dict
+
+import numpy
 import pygame
-import pygame_gui.elements
 
-from qins_moon.core.director import UIStateManagerBase, IUIStateInterface, Director, UIStateMngManager
-from qins_moon.core.asset import AssetPackage, AssetManager
-from qins_moon.core.render.render import SceneManager
+from qins_moon.core.director import UIStateManagerBase, IUIStateInterface, Director
+from qins_moon.core.utils.math_tool import MathTool
+from qins_moon.core.utils.detached_thread import DetachedThread
 from qins_moon.core.ui_element import UserInterfaceManager
-from qins_moon.core.utils.data_table_loader import DataTableLoader
-from qins_moon.qm.polity.ui_element import EditHomeUI, ProjectUI, LayerUI
 from qins_moon.qm.polity.config import Config
-from qins_moon.qm.polity.render import PolityScene
-from qins_moon.qm.polity.data_node import PolityDataNode, PolityDataTable, CityNode
-from qins_moon.qm.polity.entity import PolityRootEntity
+from qins_moon.qm.polity.entity import PolityRootEntity, TroopEntity
 from qins_moon.qm.polity import ui_element
-
-
-class TileMapEditUIStateMngr(UIStateManagerBase[IUIStateInterface]):
-    UI_HOME = 0x11
-    UI_PRJ = 0x12
-    UI_LAYER = 0x13
-
-    UI_STATE_HOME = 0x1
-    UI_STATE_PRJ = 0x2
-
-    def __init__(self):
-        super().__init__()
-        self.uiStorage = {
-            TileMapEditUIStateMngr.UI_HOME: EditHomeUI(),
-            TileMapEditUIStateMngr.UI_PRJ: ProjectUI(),
-            TileMapEditUIStateMngr.UI_LAYER: LayerUI()
-        }
-
-        self[self.UI_STATE_HOME] = EditHomeUIState(self)
-        self[self.UI_STATE_PRJ] = ProjectUIState(self)
-        self.currentUIState = self[self.UI_STATE_HOME]
-
-        # self.worldScene = TileMapEditScene()
-        # SceneManager()[SYSTEM_KEY] = self.worldScene
-
-    def switch_ui(self, key):
-        mngr = UserInterfaceManager()
-        if mngr.currentUI is not None:
-            mngr.currentUI.hide()
-        new_ui = self.uiStorage.get(key, None)
-        if new_ui is not None:
-            new_ui.show()
-        mngr.switch_user_interface(new_ui)
-
-
-class EditHomeUIState(IUIStateInterface):
-    def __init__(self, mngr):
-        self.mngr: TileMapEditUIStateMngr = mngr
-        self.mngr.uiStorage[TileMapEditUIStateMngr.UI_HOME].handleToLayerButton = self.handle_show_sub_win
-        self.mngr.uiStorage[TileMapEditUIStateMngr.UI_HOME].handleToProject = self.handle_to_project
-        tmp_ui = self.mngr.uiStorage[TileMapEditUIStateMngr.UI_LAYER]
-        tmp_ui.handleBack = self.handle_hide_sub_win
-        tmp_ui.handleNew = self.handle_new_layer
-        tmp_ui.handleDelete = self.handle_delete_layer
-        tmp_ui.handleLayerChose = self.handle_layer_chose
-        tmp_ui.handleSpriteChose = self.handle_sprite_chose
-        tmp_ui.handleMouseIn = self.handle_mouse_in_layer
-        tmp_ui.handleMouseOut = self.handle_mouse_out_layer
-
-    def active(self):
-        self.mngr.switch_ui(TileMapEditUIStateMngr.UI_HOME)
-
-    def handle_to_project(self):
-        self.mngr.switch_ui_state(TileMapEditUIStateMngr.UI_STATE_PRJ)
-
-    def handle_show_sub_win(self):
-        self.mngr.switch_ui(TileMapEditUIStateMngr.UI_LAYER)
-
-    def handle_hide_sub_win(self):
-        self.mngr.switch_ui(TileMapEditUIStateMngr.UI_HOME)
-
-    def handle_delete_layer(self):
-        pass
-
-    def handle_new_layer(self):
-        pass
-
-    def handle_layer_chose(self, v):
-        pass
-
-    def handle_sprite_chose(self, v):
-        pass
-
-    def handle_mouse_in_layer(self):
-        SceneManager()['SYSTEM_KEY'].camera.canScroll = False
-        # self.mngr.worldScene.camera.canScroll = False
-
-    def handle_mouse_out_layer(self):
-        SceneManager()['SYSTEM_KEY'].camera.canScroll = True
-        # self.mngr.worldScene.camera.canScroll = True
-
-
-class ProjectUIState(IUIStateInterface):
-    def __init__(self, mngr):
-        self.mngr: TileMapEditUIStateMngr = mngr
-        self.mngr.uiStorage[TileMapEditUIStateMngr.UI_PRJ].handleNew = self.handle_new
-        self.mngr.uiStorage[TileMapEditUIStateMngr.UI_PRJ].handleBack = self.handle_back
-
-    def active(self):
-        self.mngr.switch_ui(TileMapEditUIStateMngr.UI_PRJ)
-
-    def handle_back(self):
-        print('back')
-        self.mngr.switch_ui_state(TileMapEditUIStateMngr.UI_STATE_HOME)
-
-    def handle_new(self):
-        pass
-
-
-class TestUIStateMngr(UIStateManagerBase[IUIStateInterface]):
-    def __init__(self, config):
-        super().__init__()
-        self.config: Config = config
-        self.rootEntity = PolityRootEntity(self.config, PolityRootEntity.make_map(self.config))
-
-        self[1] = TroopInfoPolityUS(self)
-        self.currentUIState = self[1]
-
-    def init_data(self):
-        self.rootEntity.init_load_asset()
-        self.rootEntity.init_map()
-        self.rootEntity.init_register()
-
-    def active(self):
-        super().active()
-        if self.rootEntity.assetPackage is None:
-            self.init_data()
-
-
-class TestUIState(IUIStateInterface):
-    def __init__(self, mngr):
-        self.mngr: TestUIStateMngr = mngr
 
 
 class PolityUIStateBase(IUIStateInterface):
@@ -150,27 +30,28 @@ class PolityUIStateBase(IUIStateInterface):
 class PolityUIStateMngr(UIStateManagerBase[PolityUIStateBase]):
     STATE_HOME = 0x1
     STATE_ROAD_BUILD = 0x2
-    STATE_FERRY = 0x3
-    STATE_CITY = 0x4
-    STATE_TROOP = 0x5
-    STATE_TROOP_INFO = 0x6
-    STATE_BATMEN = 0x7
-    # STATE_BATMEN_CONVEY = 0x8
+    STATE_CITY_TROOP_INFO = 0x3
+    STATE_BUY = 0x4
+    STATE_TROOP_MOVE = 0x5
+    STATE_TROOP_ACTIONS = 0x6
 
     def __init__(self, root_entity):
         super().__init__()
         self.rootEntity: PolityRootEntity = root_entity
 
-        self[self.STATE_HOME] = HomePolityUS(self)
-        self[self.STATE_ROAD_BUILD] = RoadBuildingPolityUS(self)
-        self[self.STATE_FERRY] = FerryPolityUS(self)
-        self[self.STATE_CITY] = CityInfoPolityUS(self)
-        self[self.STATE_TROOP] = TroopMovePolityUS(self)
-        self[self.STATE_TROOP_INFO] = TroopInfoPolityUS(self)
-        self[self.STATE_BATMEN] = BatmenInfoPolityUS(self)
+        self.homePolityUS = HomePolityUS(self)
+        self.cityTroopInfoUS = CityTroopInfoPolityUS(self)
+        self.buyTroopUS = BuyTroopPolityUS(self)
+        self.troopMoveUS = TroopMovePolityUS(self)
+        self.troopActionsUS = TroopActionsPolityUS(self)
 
-        # self.currentUIState = self[self.STATE_HOME]
-        self.currentUIState = self[self.STATE_CITY]
+        self[self.STATE_HOME] = self.homePolityUS
+        self[self.STATE_CITY_TROOP_INFO] = self.cityTroopInfoUS
+        self[self.STATE_BUY] = self.buyTroopUS
+        self[self.STATE_TROOP_MOVE] = self.troopMoveUS
+        self[self.STATE_TROOP_ACTIONS] = self.troopActionsUS
+
+        self.currentUIState = self[self.STATE_HOME]
 
     def init_data(self):
         self.rootEntity.init_load_asset()
@@ -187,56 +68,193 @@ class HomePolityUS(PolityUIStateBase):
     def __init__(self, mngr):
         super().__init__(mngr)
         self.homeUI: ui_element.HomePolicyUI | None = None
-        self.modeData = ['home', 'road', 'ferry', 'city', 'troop', 'troopInfo', 'batmen', 'batmenConvey']
+        self.modeData = ['view', 'opera']
+        self.lastModeIndex = 0
 
     def active(self):
-        self.homeUI = ui_element.HomePolicyUI(self.modeData)
+        self.homeUI = ui_element.HomePolicyUI(self.modeData, self.lastModeIndex)
         UserInterfaceManager().switch_user_interface(self.homeUI)
-        self.homeUI.handleModeModify = self.handle_mode_change
 
     def inactive(self):
+        self.lastModeIndex = self.modeData.index(self.homeUI.modeBtn.selected_option)
         self.homeUI.kill()
+        self.homeUI = None
 
-    def handle_mode_change(self, v):
-        print(v)
-        if v == 'home':
-            return
-        elif v == 'road':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_ROAD_BUILD)
-        elif v == 'ferry':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_FERRY)
-        elif v == 'city':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_CITY)
-        elif v == 'troop':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_TROOP)
-        elif v == 'troopInfo':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_TROOP_INFO)
-        elif v == 'batmen':
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_BATMEN)
-        # elif v == 'batmenConvey':
-        #     self.mngr.switch_ui_state(PolityUIStateMngr.STATE_BATMEN_CONVEY)
+    def event(self, e0):
+        if hasattr(e0, 'pos'):
+            if self.homeUI.modeBtn.get_relative_rect().collidepoint(*e0.pos):
+                return
+
+        if self.homeUI.modeBtn.selected_option == 'view':
+            if e0.type == pygame.MOUSEBUTTONDOWN:
+                dn = self.mngr.rootEntity.rootDataNode
+                loc = self.mngr.rootEntity.worldScene.get_mouse_grid_loc()
+                if loc not in dn.troopDict and loc not in dn.cityDict:
+                    return
+                self.mngr.cityTroopInfoUS.chosenGridLoc = loc
+                self.mngr.switch_ui_state(PolityUIStateMngr.STATE_CITY_TROOP_INFO)
+
+        elif self.homeUI.modeBtn.selected_option == 'opera':
+            if e0.type == pygame.MOUSEBUTTONDOWN:
+                dn = self.mngr.rootEntity.rootDataNode
+                loc = self.mngr.rootEntity.worldScene.get_mouse_grid_loc()
+                if loc not in dn.troopDict and loc in dn.cityDict:
+                    self.mngr.buyTroopUS.chosenGridLoc = loc
+                    self.mngr.switch_ui_state(PolityUIStateMngr.STATE_BUY)
+                elif loc in dn.troopDict:
+                    self.mngr.troopMoveUS.chosenGridLoc = loc
+                    self.mngr.switch_ui_state(PolityUIStateMngr.STATE_TROOP_MOVE)
 
 
 # ################################### operation #####################################
 
-# troop
-
-
-class TroopInfoPolityUS(PolityUIStateBase):
+class CityTroopInfoPolityUS(PolityUIStateBase):
     def __init__(self, mngr):
         super().__init__(mngr)
-        self.troopInfoUI: ui_element.TroopInfoUI | None = None
+        self.cityTroopUI: ui_element.CityTroopInfoUI | None = None
+        self.chosenGridLoc = None
+
+    def show_view(self):
+        if self.cityTroopUI:
+            self.cityTroopUI.kill()
+        if self.chosenGridLoc is None:
+            return
+        dn = self.mngr.rootEntity.rootDataNode
+        if self.chosenGridLoc in dn.troopDict:
+            troop_staffs = dn.troopDict[self.chosenGridLoc].staff
+            troop_staffs = [f"{dn.personDict[i].name}-{dn.personDict[i].id}" for i in troop_staffs]
+        else:
+            troop_staffs = []
+
+        self.cityTroopUI = ui_element.CityTroopInfoUI(troop_staffs)
+        UserInterfaceManager().switch_user_interface(self.cityTroopUI)
+
+        if self.chosenGridLoc in dn.cityDict:
+            city_n = dn.cityDict[self.chosenGridLoc]
+            flag_name = '中立' if city_n.flag == 0 else dn.groupDict[city_n.flag].name
+            group_name = '中立' if city_n.belong == 0 else dn.groupDict[city_n.belong].name
+            self.cityTroopUI.cityFlagLabel.set_text('flag:'+flag_name)
+            self.cityTroopUI.cityBelongLabel.set_text("group:"+group_name)
+            self.cityTroopUI.cityNameLabel.set_text("name:"+city_n.name)
+            self.cityTroopUI.restFreezeBout.set_text("freeze:"+str(city_n.restFreezeBout))
+
+            self.cityTroopUI.gdpLabel.set_text("gdp:"+str(city_n.gdp))
+            self.cityTroopUI.restPayPerBout.set_text("restPay:"+str(city_n.restPayPerBout))
+            self.cityTroopUI.wallArmor.set_text("wallArmor:"+str(city_n.wallArmor))
+
+            self.cityTroopUI.navCityBtn.show()
+            self.cityTroopUI.cityContainer.show()
+
+        if self.chosenGridLoc in dn.troopDict:
+            troop_n = dn.troopDict[self.chosenGridLoc]
+            dt = dn.dataTable
+            flag_name = '中立' if troop_n.flag == 0 else dn.groupDict[troop_n.flag].name
+            group_name = '中立' if troop_n.belong == 0 else dn.groupDict[troop_n.belong].name
+            self.cityTroopUI.troopFlagLabel.set_text('flag:'+flag_name)
+            self.cityTroopUI.troopBelongLabel.set_text("group:"+group_name)
+            self.cityTroopUI.troopNameLabel.set_text("name:"+troop_n.name)
+            self.cityTroopUI.militaryForceListView.set_item_list([
+                f"{dt.militaryTable[i.tableRowId].name}"
+                f"-{i.currentBlood/dt.battlePropertyTable[dt.militaryTable[i.tableRowId].battleProperty].bloodValue}"
+                f"-{i1}"
+                for i1, i in enumerate(troop_n.militaryForce) if i.currentBlood != 0])
+            self.cityTroopUI.movePropertyLabel.set_text('move:'+troop_n.moveProperty)
+            self.cityTroopUI.viewPropertyLabel.set_text('view:'+troop_n.viewProperty)
+            self.cityTroopUI.costPerBoutLabel.set_text('move:'+str(int(troop_n.costPerBout)))
+            self.cityTroopUI.populationLabel.set_text(
+                f'population:{int(troop_n.population)}/{int(dt.troopLevelTable[troop_n.tableRowId].population)}')
+
+            self.cityTroopUI.navTroopBtn.show()
+            self.cityTroopUI.troopContainer.show()
+            self.cityTroopUI.cityContainer.hide()
+
+        self.cityTroopUI.handleBack = self.handle_back
+        self.cityTroopUI.handleLinkToPerson = self.handle_link_to_person
 
     def active(self):
-        self.troopInfoUI = ui_element.TroopInfoUI({'ff': 11})
-        UserInterfaceManager().switch_user_interface(self.troopInfoUI)
+        self.show_view()
 
     def inactive(self):
-        self.troopInfoUI.kill()
+        if self.cityTroopUI:
+            self.cityTroopUI.kill()
+            self.cityTroopUI = None
+
+    def event(self, e0):
+        if e0.type == pygame.MOUSEBUTTONDOWN:
+            if self.cityTroopUI is None or self.cityTroopUI.window.get_relative_rect().collidepoint(*e0.pos):
+                return
+            grid_loc = self.mngr.rootEntity.worldScene.get_mouse_grid_loc()
+            dn = self.mngr.rootEntity.rootDataNode
+            if grid_loc not in dn.cityDict and grid_loc not in dn.troopDict:
+                return
+
+            if grid_loc in dn.cityDict:
+                city_n = dn.cityDict[grid_loc]
+                self.cityTroopUI.cityFlagLabel.set_text(dn.groupDict[city_n.flag].name)
+                self.cityTroopUI.cityNameLabel.set_text(city_n.name)
+                self.cityTroopUI.cityBelongLabel.set_text(dn.groupDict[city_n.belong].name)
+                self.cityTroopUI.restFreezeBout.set_text(str(city_n.restPayPerBout))
+
+                self.cityTroopUI.gdpLabel.set_text(str(city_n.gdp))
+                self.cityTroopUI.restPayPerBout.set_text(str(city_n.restPayPerBout))
+                self.cityTroopUI.wallArmor.set_text(str(city_n.wallArmor))
+            else:
+                self.cityTroopUI.navCityBtn.hide()
+
+            if grid_loc in dn.troopDict:
+                troop_n = dn.troopDict[grid_loc]
+                self.cityTroopUI.troopFlagLabel.set_text(dn.groupDict[troop_n.flag].name)
+            else:
+                self.cityTroopUI.navTroopBtn.hide()
+
+    def handle_back(self):
+        self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+
+    def handle_link_to_person(self, v):
+        pass
 
 
 class TroopMovePolityUS(PolityUIStateBase):
-    pass
+    def __init__(self, mngr):
+        super().__init__(mngr)
+        self.chosenGridLoc = None
+        self.moveArea: Dict[tuple, float] = {}
+        self.costMap: numpy.ndarray | None = None
+
+    def active(self):
+        if self.chosenGridLoc is None:
+            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+            return
+        UserInterfaceManager().switch_user_interface(None)
+        dn = self.mngr.rootEntity.rootDataNode
+        troop_n = dn.troopDict[self.chosenGridLoc]
+        if troop_n.isFrozen:
+            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+            return
+        self.moveArea, self.costMap = self.mngr.rootEntity.troopLayer.show_move_area(
+            dn.troopDict[self.chosenGridLoc].id)
+        if not self.moveArea:
+            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+            return
+
+    def inactive(self):
+        self.mngr.rootEntity.troopLayer.coverLayer.clear()
+
+    def event(self, e0):
+        if e0.type == pygame.MOUSEBUTTONDOWN:
+            if e0.button == 3:
+                self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+            elif e0.button == 1:
+                loc = self.mngr.rootEntity.worldScene.get_mouse_grid_loc()
+                if loc not in self.moveArea:
+                    self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+                    return
+                if loc in self.mngr.rootEntity.rootDataNode.troopDict:
+                    return
+                if self.mngr.rootEntity.rootDataNode.troopDict[self.chosenGridLoc].belong != self.mngr.rootEntity.userGroupId:
+                    return
+                self.mngr.troopActionsUS.chosenGridLoc = loc
+                self.mngr.switch_ui_state(PolityUIStateMngr.STATE_TROOP_ACTIONS)
 
 
 class TroopTaskPolityUS(PolityUIStateBase):
@@ -244,293 +262,228 @@ class TroopTaskPolityUS(PolityUIStateBase):
 
 
 class TroopActionsPolityUS(PolityUIStateBase):
-    pass
+    def __init__(self, mngr):
+        super().__init__(mngr)
+        self.chosenGridLoc = None
+        self.troopActionUI: ui_element.TroopActionUI | None = None
+        self.roads = []
+        self.currentRoadIndex = 0
+        self.attackTargets = []
+        pass
+
+    def active(self):
+        DetachedThread().add_task({}, self.count_roads, self.handle_road_counted)
+        dn = self.mngr.rootEntity.rootDataNode
+        map_size = dn.map_size
+        # troop_n = dn.troopDict[self.chosenGridLoc]
+        self.attackTargets.clear()
+        user_flag = dn.groupDict[self.mngr.rootEntity.userGroupId].flag
+        for drt in [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]:
+            x_, y_ = self.chosenGridLoc[0] + drt[0], self.chosenGridLoc[1] + drt[1]
+            if x_ < 0 or y_ < 0 or x_ >= map_size[0] or y_ >= map_size[1]:
+                continue
+            if (x_, y_) not in dn.troopDict:
+                continue
+            if dn.is_enemy(user_flag, dn.troopDict[(x_, y_)].flag):
+                self.attackTargets.append((x_, y_))
+
+        actions = ['wait']
+        if self.attackTargets:
+            actions.append('attack')
+        self.troopActionUI = ui_element.TroopActionUI(actions)
+        UserInterfaceManager().switch_user_interface(self.troopActionUI)
+        self.troopActionUI.handleBack = self.handle_back
+        self.troopActionUI.handleClick = self.handle_action
+        self.troopActionUI.rightMenu.disable()
+
+        block_size = self.mngr.rootEntity.config.MAP_BLOCK_SIZE
+        mouse_loc = block_size[0] * (self.chosenGridLoc[0]+.5), block_size[1] * (self.chosenGridLoc[1]*.5)
+        world_scene_loc = self.mngr.rootEntity.worldScene.loc
+        world_scene_size = self.mngr.rootEntity.worldScene.get_surface().get_size()
+        world_scene_loc = world_scene_loc[0] - world_scene_size[0]//2, world_scene_loc[1] - world_scene_size[1]//2
+        mouse_loc = mouse_loc[0] + world_scene_loc[0], mouse_loc[1] + world_scene_loc[1]
+        screen_size = pygame.display.get_window_size()
+        rm_size = self.troopActionUI.window.get_relative_rect().size
+        # print(mouse_loc)
+        # print(self.chosenGridLoc)
+        if mouse_loc[0] > screen_size[0]/2:
+            rm_loc = mouse_loc[0] - rm_size[0] / 2 - block_size[0]/2, mouse_loc[1]
+        else:
+            rm_loc = mouse_loc[0] + rm_size[0] / 2 + block_size[0]/2, mouse_loc[1]
+        if rm_loc[0] - rm_size[0]//2 < 0:
+            rm_loc = rm_size[0]//2, rm_loc[1]
+        if rm_loc[1] - rm_size[1]//2 < 0:
+            rm_loc = rm_loc[0], rm_size[1]//2
+        if rm_loc[0] + rm_size[0]//2 > screen_size[0]:
+            rm_loc = screen_size[0]-rm_size[0]//2, rm_loc[1]
+        if rm_loc[1] + rm_size[1]//2 > screen_size[1]:
+            rm_loc = rm_loc[0], screen_size[1] - rm_size[1]//2
+        # print(rm_loc)
+        self.troopActionUI.window.set_relative_position(rm_loc)
+
+    def inactive(self):
+        if self.troopActionUI:
+            self.troopActionUI.kill()
+            self.troopActionUI = None
+        self.mngr.rootEntity.troopLayer.coverLayer.clear()
+
+    def count_roads(self, **kwargs):
+        self.roads.clear()
+        return MathTool.count_all_roads(
+            self.mngr.troopMoveUS.moveArea, self.mngr.troopMoveUS.chosenGridLoc,
+            self.chosenGridLoc, self.mngr.troopMoveUS.costMap)
+
+    def handle_road_counted(self, rlt):
+        self.troopActionUI.rightMenu.enable()
+        if self.troopActionUI is None or not rlt:
+            return
+        self.roads = rlt
+        self.currentRoadIndex = 0
+        self.mngr.rootEntity.troopLayer.show_road(self.roads[self.currentRoadIndex])
+
+    def event(self, e0):
+        if e0.type == pygame.MOUSEBUTTONDOWN:
+            if e0.button == 4:
+                self.currentRoadIndex = (self.currentRoadIndex+1) % len(self.roads)
+            elif e0.button == 5:
+                self.currentRoadIndex = (self.currentRoadIndex+1+len(self.roads)) % len(self.roads)
+            else:
+                if e0.button == 3:
+                    self.handle_back()
+                return
+            self.mngr.rootEntity.troopLayer.show_road(self.roads[self.currentRoadIndex])
+
+    def handle_action(self, v):
+        if not self.roads:
+            return
+        if v == 'wait':
+            dn = self.mngr.rootEntity.rootDataNode
+            # print(self.roads)
+            road = self.roads[self.currentRoadIndex]
+            troop_n = dn.troopDict[self.mngr.troopMoveUS.chosenGridLoc]
+            troop_e: TroopEntity = self.mngr.rootEntity.troopLayer.find_child_by_id(troop_n.id)
+            troop_e.gridMoveController.set_task(road)
+            troop_e.currentTask = 'wait'
+            dn.move_troop(troop_e.id, self.chosenGridLoc)
+            troop_n.operaActed = True
+            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+            return
+        elif v == 'attack':
+            print('attack')
+
+    def handle_back(self):
+        self.mngr.switch_ui_state(PolityUIStateMngr.STATE_TROOP_MOVE)
 
 
 class TroopTargetPolityUS(PolityUIStateBase):
     pass
 
 
-# city
-
-
-class CityInfoPolityUS(PolityUIStateBase):
+class BuyTroopPolityUS(PolityUIStateBase):
     def __init__(self, mngr):
         super().__init__(mngr)
-        self.cityInfoUI: ui_element.CityInfoPolicyUI | None = None
-        self.currentCityNode: CityNode | None = None
-
-    def show_city_info(self, city_d: CityNode):
-        # last_loc = 0, 0
-        if self.cityInfoUI is not None:
-            last_loc = self.cityInfoUI.window.get_relative_rect()
-            # last_loc = last_loc.x, last_loc.y
-            self.cityInfoUI.kill()
-
-        self.currentCityNode = city_d
-        dn = self.mngr.rootEntity.rootDataNode
-        city_table = dn.cityDict
-        cities = [f"{v.name}-{k}" for k, v in dn.cityDict.idDict.items()]
-
-        city_teams = {}  # 未过滤
-        for loc in city_d.locations:
-            _loc_teams = dn.teamDict[loc]
-            if _loc_teams is None:
-                continue
-            for i in _loc_teams:
-                target_name = f"-{i.moveTarget[0]}_{i.moveTarget[1]}"
-                if i.moveTarget in city_table:
-                    target_name = city_table[i.moveTarget].name+target_name
-                city_teams[f"{i.name}-{i.id}"] = target_name
-
-        print(city_teams)
-
-        city_ferries = []
-        for loc in city_d.locations:
-            _loc_ferries = dn.ferryDict[loc]
-            if _loc_ferries is None:
-                continue
-            for i in _loc_ferries:
-                city_ferries.append(f"{i.name}-{i.id}")
-
-        goods_price_dict = {}
-        for k, v in dn.dataTable.goodsTable.nameDict.items():
-            goods_price_dict[v] = v.price
-
-        building_types = list(dn.dataTable.buildingTable.nameDict.keys())
-        military_types = [k for k in dn.dataTable.militaryTable.nameDict.keys()]
-        ferry_types = list(dn.dataTable.ferryTable.nameDict.keys())
-        goods_types = list(dn.dataTable.goodsTable.nameDict.keys())
-
-        city_buildings = [f"{k}-{v}" for k, v in city_d.buildings.items()]
-        city_around_troops = []  # 未过滤
-        __round_locations = set(city_d.locations)
-        map_size = dn.map_size
-        for i in city_d.locations:
-            for drt in [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]:
-                x_, y_ = drt[0] + i[0], drt[1]+i[1]
-                if x_ < 0 or y_ < 0 or x_ >= map_size[0] or y_ >= map_size[1]:
-                    continue
-                __round_locations.add((x_, y_))
-        for i in __round_locations:
-            if i not in dn.troopDict:
-                continue
-            tmp_troop = dn.troopDict[i]
-            city_around_troops.append(f"{tmp_troop.name}-{tmp_troop.id}")
-
-        # general
-        self.cityInfoUI = ui_element.CityInfoPolicyUI(military_types, cities, city_teams, building_types, ferry_types)
-        UserInterfaceManager().switch_user_interface(self.cityInfoUI)
-        self.cityInfoUI.populationLabel.set_text('population:'+str(city_d.population))
-        self.cityInfoUI.popularSupportLabel.set_text('support:'+str(city_d.popularSupport))
-        self.cityInfoUI.talentCapacityLabel.set_text('talent:'+str(city_d.talentCapacity))
-        self.cityInfoUI.baseFightingCapacityLabel.set_text('fight:'+str(city_d.baseFightingCapacity))
-        self.cityInfoUI.wallArmorLabel.set_text('wallArmor:'+str(city_d.wallArmor))
-
-        # building
-        self.cityInfoUI.maxBlockNuLabel.set_text(str(city_d.maxBlockNu))
-        self.cityInfoUI.needResourceListView.set_item_list([k for k in city_d.needResource])
-        # self.cityInfoUI.provideResourceListView.set_item_list(
-        # [f"{k} x {v}" for k, v in city_d.provideResource.items()])
-        self.cityInfoUI.buildingListView.set_item_list(city_buildings)
-
-        # army
-        self.cityInfoUI.destroyTroopListView.set_item_list(city_around_troops)
-
-        # ferry
-        self.cityInfoUI.ferryListView.set_item_list(city_ferries)
-        self.cityInfoUI.storageListView.set_item_list(
-            [f"{k}-{v}" for k, v in dn.storageDict[city_d.storageId].goods.items()])
-
-        self.cityInfoUI.extraStorageListView.set_item_list([f"{i}-0" for i in goods_types])
-
-        self.cityInfoUI.handleBack = self.handle_back
-        self.cityInfoUI.handleModifyBuildingNu = self.handle_modify_building
-        self.cityInfoUI.handleMakeArmy = self.handle_enlist_military
-        self.cityInfoUI.handleDeleteTroop = self.handle_destroy_troop
-        self.cityInfoUI.handleMakeFerry = self.handle_make_ferry
-        self.cityInfoUI.handleDeleteFerry = self.handle_delete_ferry
-        self.cityInfoUI.handleModifyExtra = self.handle_modify_extra
-        self.cityInfoUI.handleModifyTeamTarget = self.handle_modify_team_target
+        self.chosenGridLoc = None
+        self.buyTroopUI: ui_element.BuyTroopUI | None = None
 
     def active(self):
-        pass
+        if self.chosenGridLoc is None:
+            self.handle_back()
+            return
+        dn = self.mngr.rootEntity.rootDataNode
+        city_n = dn.cityDict[self.chosenGridLoc]
+        distributions = {v: (dn.dataTable.troopLevelTable[v].distribution, dn.dataTable.troopLevelTable[v].cost_bill)
+                         for v in dn.dataTable.groupAITable[
+                             dn.groupDict[city_n.belong].groupAIId].troopLevels}
+        self.buyTroopUI = ui_element.BuyTroopUI(distributions)
+        UserInterfaceManager().switch_user_interface(self.buyTroopUI)
+        self.buyTroopUI.groupBillLabel.set_text('bill:'+str(dn.groupDict[city_n.belong].bill))
+        self.buyTroopUI.handleBack = self.handle_back
+        self.buyTroopUI.handleSure = self.handle_sure
 
     def inactive(self):
-        self.mngr.rootEntity.worldScene.canDrawCircle = True
-        if self.cityInfoUI is not None:
-            self.cityInfoUI.kill()
+        if self.buyTroopUI:
+            self.buyTroopUI.kill()
+            self.buyTroopUI = None
+
+    def handle_sure(self):
+        dn = self.mngr.rootEntity.rootDataNode
+        group_n = dn.groupDict[dn.cityDict[self.chosenGridLoc].belong]
+        troop_d = dn.dataTable.troopLevelTable[self.buyTroopUI.groupAiTypeBtn.selected_option]
+        cost_bill = troop_d.cost_bill
+        if cost_bill > group_n.bill:
+            return
+        troop_n = dn.make_troop(self.chosenGridLoc, troop_d.id)
+        dn.appoint_troop(troop_n.id, group_n.id)
+        self.mngr.rootEntity.troopLayer.refresh_node(troop_n.id)
+        self.handle_back()
 
     def handle_back(self):
         self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
 
-    def event(self, e0):
-        if e0.type == pygame.MOUSEBUTTONDOWN:
-            if self.cityInfoUI is not None and self.cityInfoUI.window.get_relative_rect().collidepoint(*e0.pos):
-                return
-            grid_loc = self.mngr.rootEntity.worldScene.get_mouse_grid_loc()
-            dn = self.mngr.rootEntity.rootDataNode
-            if grid_loc not in dn.cityDict:
-                return
-            self.show_city_info(dn.cityDict[grid_loc])
-
-    def handle_modify_building(self, t, v):
-        if self.currentCityNode is None:
-            return
-        rlt = self.mngr.rootEntity.rootDataNode.modify_building_nu(self.currentCityNode.id, t, v)
-        if rlt:
-            self.show_city_info(self.currentCityNode)
-            self.cityInfoUI.show_view(self.cityInfoUI.navBuildingBtn.text)
-            # self.cityInfoUI.buildingListView.set_item_list(
-            #     [f"{k}-{v}" for k, v in self.currentCityNode.buildings.items()])
-
-    def handle_destroy_troop(self, v):
-        pass
-
-    def handle_enlist_military(self, force):
-        pass
-
-    def handle_delete_ferry(self, v):
-        pass
-
-    def handle_make_ferry(self, t):
-        pass
-
-    def handle_modify_extra(self, t, v):
-        pass
-
-    def handle_modify_team_target(self, t, v):
-        pass
 
 # road
 
 
-class RoadBuildingPolityUS(PolityUIStateBase):
-    def __init__(self, mngr):
-        super().__init__(mngr)
-        self.roadUI: ui_element.RoadPolicyUI | None = None
-        self.trafficTable = self.mngr.rootEntity.rootDataNode.dataTable.trafficTable
-        self.CLEAR_KEY = 'clear'
-        self.currentKey = self.CLEAR_KEY
-        self.isToolBarHidden = False
-
-    def active(self):
-        self.roadUI = ui_element.RoadPolicyUI(self.CLEAR_KEY)
-        UserInterfaceManager().switch_user_interface(self.roadUI)
-        names = list(self.trafficTable.nameDict.keys())
-        names.append(self.CLEAR_KEY)
-        self.roadUI.roadTypeBtn.remove_options(self.roadUI.roadTypeBtn.options_list)
-        self.roadUI.roadTypeBtn.add_options(names)
-        self.roadUI.handleModify = self.handle_modify_key
-        self.isToolBarHidden = False
-        self.roadUI.show()
-
-    def inactive(self):
-        self.roadUI.kill()
-
-    def handle_modify_key(self, v):
-        self.currentKey = v
-
-    def event(self, e0):
-        if e0.type == pygame.KEYDOWN:
-            if e0.key == pygame.K_TAB:
-                if self.isToolBarHidden:
-                    self.roadUI.show()
-                else:
-                    self.roadUI.hide()
-                self.isToolBarHidden = not self.isToolBarHidden
-            elif e0.key == pygame.K_ESCAPE:
-                self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
-        elif e0.type == pygame.MOUSEBUTTONUP and not self.isToolBarHidden and e0.button == 1:
-            area = self.mngr.rootEntity.worldScene.circle.get_current_circle_area()
-            if area is None:
-                return
-
-            block_size = self.mngr.rootEntity.config.MAP_BLOCK_SIZE
-            area = area[0]//block_size[0], area[1]//block_size[1], area[2]//block_size[0], area[3]//block_size[1]
-            dn = self.mngr.rootEntity.rootDataNode
-            map_size = dn.map_size
-            if area[0] < 0:
-                area = 0, *area[1:]
-            if area[0] >= map_size[0]:
-                area = map_size[0]-1, *area[1:]
-            if area[1] < 0:
-                area = area[0], 0, *area[2:]
-            if area[1] >= map_size[1]:
-                area = area[0], map_size[1]-1, *area[2:]
-
-            key = 0 if self.currentKey == self.CLEAR_KEY else self.trafficTable[self.currentKey].id
-            traffic_map_entity = self.mngr.rootEntity.trafficLayer
-            for y in range(area[1], area[3]+1):
-                for x in range(area[0], area[2]+1):
-                    traffic_map_entity.refresh_node((x, y), key)
-
-
-# ferry
-
-
-class FerryPolityUS(PolityUIStateBase):
-    def __init__(self, mngr):
-        super().__init__(mngr)
-        self.ferriesUI: ui_element.FerriesPolityUI | None = None
-        self.ferryInfoCmdUI: ui_element.FerryInfoCmdPolityUI | None = None
-
-    def active(self):
-        self.ferriesUI = ui_element.FerriesPolityUI()
-        self.ferryInfoCmdUI = ui_element.FerryInfoCmdPolityUI()
-        # self.ferryInfoCmdUI.hide()
-        UserInterfaceManager().switch_user_interface(self.ferryInfoCmdUI)
-        self.ferryInfoCmdUI.handleBack = self.handle_back
-
-    def inactive(self):
-        self.ferriesUI.kill()
-        self.ferryInfoCmdUI.kill()
-
-    def event(self, e0):
-        if e0.type == pygame.KEYDOWN and e0.key == pygame.K_ESCAPE:
-            self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
-
-    def handle_back(self):
-        self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
-
-
-# batmen
-
-
-class BatmenInfoPolityUS(PolityUIStateBase):
-    def __init__(self, mngr):
-        super().__init__(mngr)
-        self.teamsUI: ui_element.TeamsUI | None = None
-        self.teamInfoUI: ui_element.TeamInfoUI | None = None
-        self.teamConveyUI: ui_element.TeamConveyUI | None = None
-
-    def active(self):
-        self.teamsUI = ui_element.TeamsUI(['111', '222', '333'])
-        self.teamInfoUI = ui_element.TeamInfoUI()
-        self.teamConveyUI = ui_element.TeamConveyUI()
-
-        UserInterfaceManager().switch_user_interface(self.teamsUI)
-        self.teamInfoUI.handleBack = self.handle_back
-        self.teamConveyUI.handleBack = self.handle_back
-
-    def inactive(self):
-        self.teamsUI.kill()
-        self.teamInfoUI.kill()
-
-    def handle_back(self):
-        self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
-
-    def event(self, e0):
-        if e0.type == pygame.KEYDOWN and e0.key == pygame.K_ESCAPE:
-            self.handle_back()
-
-
-# class BatmenActionsPolityUS(PolityUIStateBase):
-#     pass
+# class RoadBuildingPolityUS(PolityUIStateBase):
+#     def __init__(self, mngr):
+#         super().__init__(mngr)
+#         self.roadUI: ui_element.RoadPolicyUI | None = None
+#         self.trafficTable = self.mngr.rootEntity.rootDataNode.dataTable.trafficTable
+#         self.CLEAR_KEY = 'clear'
+#         self.currentKey = self.CLEAR_KEY
+#         self.isToolBarHidden = False
 #
+#     def active(self):
+#         self.roadUI = ui_element.RoadPolicyUI(self.CLEAR_KEY)
+#         UserInterfaceManager().switch_user_interface(self.roadUI)
+#         names = list(self.trafficTable.nameDict.keys())
+#         names.append(self.CLEAR_KEY)
+#         self.roadUI.roadTypeBtn.remove_options(self.roadUI.roadTypeBtn.options_list)
+#         self.roadUI.roadTypeBtn.add_options(names)
+#         self.roadUI.handleModify = self.handle_modify_key
+#         self.isToolBarHidden = False
+#         self.roadUI.show()
 #
-# class BatmenMovePolityUS(PolityUIStateBase):
-#     pass
+#     def inactive(self):
+#         self.roadUI.kill()
+#
+#     def handle_modify_key(self, v):
+#         self.currentKey = v
+#
+#     def event(self, e0):
+#         if e0.type == pygame.KEYDOWN:
+#             if e0.key == pygame.K_TAB:
+#                 if self.isToolBarHidden:
+#                     self.roadUI.show()
+#                 else:
+#                     self.roadUI.hide()
+#                 self.isToolBarHidden = not self.isToolBarHidden
+#             elif e0.key == pygame.K_ESCAPE:
+#                 self.mngr.switch_ui_state(PolityUIStateMngr.STATE_HOME)
+#         elif e0.type == pygame.MOUSEBUTTONUP and not self.isToolBarHidden and e0.button == 1:
+#             area = self.mngr.rootEntity.worldScene.circle.get_current_circle_area()
+#             if area is None:
+#                 return
+#
+#             block_size = self.mngr.rootEntity.config.MAP_BLOCK_SIZE
+#             area = area[0]//block_size[0], area[1]//block_size[1], area[2]//block_size[0], area[3]//block_size[1]
+#             dn = self.mngr.rootEntity.rootDataNode
+#             map_size = dn.map_size
+#             if area[0] < 0:
+#                 area = 0, *area[1:]
+#             if area[0] >= map_size[0]:
+#                 area = map_size[0]-1, *area[1:]
+#             if area[1] < 0:
+#                 area = area[0], 0, *area[2:]
+#             if area[1] >= map_size[1]:
+#                 area = area[0], map_size[1]-1, *area[2:]
+#
+#             key = 0 if self.currentKey == self.CLEAR_KEY else self.trafficTable[self.currentKey].id
+#             traffic_map_entity = self.mngr.rootEntity.trafficLayer
+#             for y in range(area[1], area[3]+1):
+#                 for x in range(area[0], area[2]+1):
+#                     traffic_map_entity.refresh_node((x, y), key)
+#
 
 
 # ################################### statistics #####################################
@@ -542,7 +495,7 @@ if __name__ == '__main__':
     __director.init(
         __config.SYSTEM_KEY,
         PolityUIStateMngr(
-            PolityRootEntity(__config, PolityRootEntity.make_map(__config))
+            PolityRootEntity(__config, PolityRootEntity.make_map(__config), 26020)
         )
     )
     __director.run()

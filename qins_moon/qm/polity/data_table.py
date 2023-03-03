@@ -7,10 +7,14 @@
 import json
 from typing import Dict, Tuple, List
 
-from qins_moon.core.utils.data_structure import TableRowBase as RowBase, NameIdTableStructure
+from qins_moon.core.utils.data_structure import TableRowBase, NameIdTableStructure
 
 
 # terrain
+
+class RowBase(TableRowBase):
+    def refresh_property(self, dn: "PolityDataTable"):
+        pass
 
 
 class TerrainTerrainRow(RowBase):
@@ -85,18 +89,21 @@ class DecorationRow(RowBase):
 class MilitaryRow(RowBase):
     def __init__(self):
         super().__init__()
-        # self.costPopulation = 0
-        self.madeFrom: dict | str = {}
-        self.costPerTick: float = 0
-        # self.moveProperty = ""
-        self.battleProperty = ""
-        self.modelName = ''
-        self.engineType = ''
-        self.baseSpeed = 10
+        self.population = 0
+        self.costBill = 90
+        self.costPerBout: float = 0
 
-    def correct_property_type(self):
-        super().correct_property_type()
-        self.madeFrom = json.loads(self.madeFrom)
+        self.moveProperty = ""
+        self.battleProperty = ""
+        self.viewProperty = ''
+        self.modelName = ''
+
+
+class ViewPropertyRow(RowBase):
+    def __init__(self):
+        super().__init__()
+        self.eyeType = ''
+        self.distance = 7
 
 
 class MovePropertyRow(RowBase):
@@ -124,89 +131,119 @@ class BattlePropertyRow(RowBase):
         self.viewType = ''
 
 
-# enemy or building
-
-
-class GoodsRow(RowBase):
+class TroopLevelRow(RowBase):
     def __init__(self):
         super().__init__()
-        self.weight = 1.0
-        self.price = 1.0
-        # self.costLabour = 1.0
-        self.madeFrom: str | dict = {}
-        self.modelName = ''
+        self.distribution: dict | str = ''
+
+        self._moveProperty = ''
+        self._viewProperty = ''
+        self._battleProperty = ''
+        self._population = 7
+        self._costPerBout = 9
+        self._costBill = 90
+
+    # region property
+    @property
+    def move_property(self):
+        return self.move_property
+
+    @property
+    def view_property(self):
+        return self._viewProperty
+
+    @property
+    def battle_property(self):
+        return self._battleProperty
+
+    @property
+    def population(self):
+        return self._population
+
+    @property
+    def cost_per_bout(self):
+        return self._costPerBout
+
+    @property
+    def cost_bill(self):
+        return self._costBill
+    # endregion
 
     def correct_property_type(self):
         super().correct_property_type()
-        self.madeFrom = json.loads(self.madeFrom)
+        self.distribution = json.loads(self.distribution)
+
+    def refresh_property(self, dt: "PolityDataTable"):
+        self._population = 0
+        self._costPerBout = 0
+        self._costBill = 0
+
+        military_rows = set()
+        for k, v in self.distribution.items():
+            tmp_row = dt.militaryTable[k]
+            self._costPerBout += tmp_row.costPerBout * v
+            self._population += tmp_row.population * v
+            self._costBill += tmp_row.costBill
+            military_rows.add(tmp_row)
+
+        self._moveProperty = min(
+            [dt.movePropertyTable[i.moveProperty] for i in military_rows],
+            key=lambda arg: arg.baseSpeed).name
+        self._viewProperty = max(
+            [dt.viewPropertyTable[i.viewProperty] for i in military_rows],
+            key=lambda arg: arg.distance).name
 
 
-class BuildingRow(RowBase):
+class GroupAIRow(RowBase):
     def __init__(self):
         super().__init__()
-        self.provide: dict | str = ''
-        # self.need: dict | str = ''
-
-        self.madeFrom: dict | str = {}
-        self.modelName = ''
-        self.costPerTick = 0.1
-
-        self.isSingleBuilding = False
-        self.bufWallArmor = -1.1  # 0表示没影响
-        self.talentCapacity = 1.1
-        self.tax = 0.2
-        self.underTax = 0.1
+        self.troopLevels: List[str] | str = ''
+        self.billMakeNewTroop = 0  # 应大于所有的troop 类型
+        self.minAttackTroopNu = 2
+        self.maxAttackBouts = 9
+        self.maxWaitActionBouts = 5
+        self.attackViewDistance = 9
 
     def correct_property_type(self):
         super().correct_property_type()
-        self.provide = set(json.loads(self.provide))
-        # self.need = json.loads(self.need)
-        self.madeFrom = json.loads(self.madeFrom)
-
-
-class FerryRow(RowBase):
-    def __init__(self):
-        super().__init__()
-        self.madeFrom: dict | str = {}
-        self.costMoneyPerTick = 0.1
-        # self.canLoad: set | str = ''
-        self.moveProperty = ''
-        self.modelName = ''
-
-    def correct_property_type(self):
-        super().correct_property_type()
-        # self.canLoad = set(json.loads(self.canLoad))
-        self.madeFrom = json.loads(self.madeFrom)
+        self.troopLevels = json.loads(self.troopLevels)
 
 
 class CityLevelRow(RowBase):
     def __init__(self):
         super().__init__()
-        self.maxBlockNu = 0
-        self.areaSize: tuple | str = 1, 1
-        self.population = 0
-        self.baseFightingCapacity = 1
+        self.canBuild: list | str = ''
+        self.gdp = 90
+        self.maxPayPerBout = 90
+        self.wallArmor = 90
+        self.areaSize: tuple | str = 0, 0
 
     def correct_property_type(self):
         super().correct_property_type()
+        # self.areaSize = tuple(json.loads(self.areaSize))
+        self.canBuild = json.loads(self.canBuild)
         self.areaSize = tuple(json.loads(self.areaSize))
 
 
 class GeneralTable:
     def __init__(self):
-        # self.minEnlistPopulationRate = 0.7
-        # self.minMoneyPopulationRate = 0.8
         self.defaultResourcePackageId: Tuple[str, str] | str = "", ""
         self.cityModelName = ""
         self.cityTerrainTerrain = ''
-        # self.militaryModelName = ""
-        # self.militaryTerrainTerrain = ''
-        # self.militaryMaxNumber = 40*1000
-        # self.militaryMaxFightNumber = 40*1000 * .5
+
         self.troopModelName = ""
-        self.teamModelName = ''
-        self.ferryModelName = ''
-        self.goldGoods = ''
+
+        self.maxPopulationInTroop = 9000
+        self.cityFreezeBouts = 5
+        self.personCostPerBout = 90
+
+        self.refreshMaxGovernTroopNuBouts = 9
+        self.maxGovernTroopNu = 5
+
+        self.conveyBoutsPerDistance = 0.1
+        # self.maxSupplyDistance = 10
+        self.costScaleWhenUnActed = 0.4
+        self.maxSupplyTroopRate = 3
 
     def correct_property_type(self):
         self.defaultResourcePackageId = tuple(json.loads(self.defaultResourcePackageId))
@@ -232,11 +269,17 @@ class PolityDataTable:
         self.eyeTable = NameIdTableStructure[EyeRow](EyeRow())
 
         self.decorationTable = NameIdTableStructure[DecorationRow](DecorationRow())
+        self.viewPropertyTable = NameIdTableStructure[ViewPropertyRow](ViewPropertyRow())
         self.battlePropertyTable = NameIdTableStructure[BattlePropertyRow](BattlePropertyRow())
         self.movePropertyTable = NameIdTableStructure[MovePropertyRow](MovePropertyRow())
 
         self.militaryTable = NameIdTableStructure[MilitaryRow](MilitaryRow())
-        self.goodsTable = NameIdTableStructure[GoodsRow](GoodsRow())
-        self.buildingTable = NameIdTableStructure[BuildingRow](BuildingRow())
+        self.troopLevelTable = NameIdTableStructure[TroopLevelRow](TroopLevelRow())
         self.cityLevelTable = NameIdTableStructure[CityLevelRow](CityLevelRow())
-        self.ferryTable = NameIdTableStructure[FerryRow](FerryRow())
+        self.groupAITable = NameIdTableStructure[GroupAIRow](GroupAIRow())
+
+        # adjust
+        for v in self.__dict__.values():
+            if isinstance(v, NameIdTableStructure) and isinstance(v.itemType, RowBase):
+                for i in v.idDict.values():
+                    i.refresh_property(self)

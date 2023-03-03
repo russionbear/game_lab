@@ -42,7 +42,7 @@ class PolityScene(SceneBase):
 
     def get_mouse_grid_loc(self):
         loc = self.get_mouse_loc_in_scene()
-        return loc[0]//self.blockSize[0], loc[1]//self.blockSize[1]
+        return int(loc[0]//self.blockSize[0]), int(loc[1]//self.blockSize[1])
 
     def event(self, e0: pygame.event.Event):
         super().event(e0)

@@ -33,3 +33,10 @@
 - 看来必须要搞懂rvo2和recastNavigation的源码啊
 - 制作ui时先别想着制作集成工具，哦不，先做产品再来集成
 - 战旗游戏无法效仿openTtd交通系统|建筑系统|生产链
+
+
+## commit log
+### 1
+### 2
+new:
+- add kdtree into loc struction

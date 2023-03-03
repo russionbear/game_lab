@@ -119,7 +119,10 @@ class IGridNavigationInterface:
                 tmp_v = self._layerMapDict[l][loc[1], loc[0]]
                 if tmp_v == 0:
                     continue
-                v[0][loc[1], loc[0]] = m(tmp_v)
+                tmp_v2 = m(tmp_v)
+                if tmp_v2 == 0:
+                    continue
+                v[0][loc[1], loc[0]] = tmp_v2
 
 
 class IGridMoveControllerInterface:
@@ -138,6 +141,7 @@ class IGridMoveControllerInterface:
         # #  #  下面的两个方法可能会更新road，realize it when call them
         # self._allocNextPointEvent = None
         self._taskFinishedEvent = None
+        self._nextPointAllocatedEvent = None  # o_d, n_d
 
         self._sleepTime = 0  # -1表示无任务, 0通过, > 0 等待
 
@@ -147,6 +151,9 @@ class IGridMoveControllerInterface:
         self._moveEngine = engine
 
     # 关于事件
+
+    def sub_next_point_allocated(self, v):
+        self._nextPointAllocatedEvent = v
 
     def sub_task_finished(self, v):
         """
@@ -180,6 +187,7 @@ class IGridMoveControllerInterface:
         #         return p
         if p == self._gridLoc:
             return p
+        old_grid_loc = self._gridLoc
         if self.gridNavigation:
             layer_map = self.gridNavigation.get_layer_map(self._unitLayerAndValue[0])
             if layer_map[p[1], p[0]] != 0:
@@ -189,6 +197,8 @@ class IGridMoveControllerInterface:
             layer_map[p[1], p[0]] = self._unitLayerAndValue[1]
             # print(loc, 'to', p, self._unitLayerAndValue[1], layer_map[p[1], [0]])
         self._set_next_grid_point(p)
+        if self._nextPointAllocatedEvent is not None:
+            self._nextPointAllocatedEvent(old_grid_loc, p)
         return p
 
     def _pub_task_finished(self, **kwargs):

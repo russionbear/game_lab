@@ -5,7 +5,6 @@
 # @Author    :russionbear
 # @Function  :function
 import random
-import time
 from typing import Dict, List, Set, Tuple
 
 import numpy
@@ -22,136 +21,221 @@ class GroupBase:
         self.belong = 0
 
 
-class TeamNode(GroupBase):
-    def __init__(self):
-        super().__init__()
-        # self.type: int = t
-
-        self.loc = 0, 0
-        self.staff = []
-        self.storage = {}
-        # self.header: int = 0
-        # self.restStaff: List[int] = []
-        # self.population = 0
-        self.moveTarget = 0, 0
-
-
-class BatMenNode(TeamNode):
-    def __init__(self):
-        super().__init__()
-        self.currentMode = 0  # transport, spy, steal, attack, damage, defense
-        self.transportProperty = 0, 0
-        self.needStorage = {}
-
-
 class CityNode(GroupBase):
     def __init__(self):
         super().__init__()
         self.locations = []
-        self.maxBlockNu = 100
+        # self.maxBlockNu = 100
         self.tableRowId = 0
 
-        # people
-        self.population = 90
-        self.popularSupport = 0.9
-        self.talentCapacity = 0.5  # 人才相关
-        self.baseFightingCapacity = 1  # 训练相关
-
-        # 物资
-        self.storageId = 0
-
-        # 军事
+        self.gdp = 90
+        self.restFreezeBout = 0
+        self.restPayPerBout = 0
         self.wallArmor = 1.2
 
-        # 市场
-        self.buildings: Dict[str, int] = {}  # provide(people per res), need()[过量自动清除];;good price
-        self.needResource = set()  # 不包括extra
-        self.extraNeedResource = set()
-        self._lastExportResource: Dict[str, float | int] = {}
-        # self.extraNeedResource: Dict[str, int] = {}
-        # self.provideResource = {}
-
-        self.tax = 0.1
-
-        # 地下利润
-        self.underTax = 0.1
-        self.underTaxDistribution = {}
-
-    def adjust_demand_supply(self, dt: PolityDataTable):
-        self.needResource.clear()
-        for k in self.buildings.keys():
-            building_d = dt.buildingTable[k]
-            for goods in building_d.provide:
-                goods_d = dt.goodsTable[goods]
-                for k1 in goods_d.madeFrom.keys():
-                    self.needResource.add(k1)
-
-
-class StorageNode(GroupBase):
-    def __init__(self):
-        super().__init__()
-        self.goods = {}
-        self.modifyTime = 0
-        self.loc = 0, 0
+    def update(self, dn: 'PolityDataNode'):
+        if self.restFreezeBout != 0:
+            self.restFreezeBout -= 1
+            return
 
 
 class MilitaryNode:
     def __init__(self):
         self.tableRowId = 0
-        self.militaryBlood = 1
+        self.currentBlood = 1
 
 
-class TroopNode(TeamNode):
+class TroopNode(GroupBase):
     def __init__(self):
         super().__init__()
-        self.innerTeams = []
-        self.militaryForce = {}
-        self.costPerTick: float = 0
-        self.moveProperty = ""
-        self.battleProperty = ""
-
-        self.operaMoved = False
-        self.operaHidden = False
-        self.currentStatus = []
-
-        self.needStorage = {}
-
-
-class FerryNode(TeamNode):
-    def __init__(self):
-        super().__init__()
-        self.loc = 0, 0
         self.tableRowId = 0
-        self.maxCapacity = 100
-        self.restCapacity = 0
-        self.goods = {}
 
-        self.stations = []
-        self.currentStationIndex = 0
+        self.loc = 0, 0
+        self.staff: List[int] = []
+        self.militaryForce: List[MilitaryNode] = []
+
+        self.costPerBout: float = 0
+        self.isFrozen = False
+
+        self.population = 0
+        self.moveProperty = ""
+        self.viewProperty = ''
+
+        # about ai
+        self.moveTarget = -1, 0
+        # self.attackTargetAndWeight = 0, 0, 0
+
+        self.operaActed = False
+        self.operaHidden = False
+
+    def refresh_property(self, dt: 'PolityDataTable'):
+        self.population = 0
+        self.costPerBout = 0
+        military_rows = set()
+        for i in self.militaryForce:
+            if i.currentBlood <= 0:
+                continue
+            tmp_row = dt.militaryTable[i.tableRowId]
+            self.population += i.currentBlood / dt.battlePropertyTable[tmp_row.battleProperty].\
+                bloodValue * tmp_row.population
+            self.costPerBout += i.currentBlood / dt.battlePropertyTable[tmp_row.battleProperty].\
+                bloodValue * tmp_row.costPerBout
+            military_rows.add(tmp_row)
+
+        self.moveProperty = min(
+            [dt.movePropertyTable[i.moveProperty] for i in military_rows],
+            key=lambda arg: arg.baseSpeed).name
+        self.viewProperty = max(
+            [dt.viewPropertyTable[i.viewProperty] for i in military_rows],
+            key=lambda arg: arg.distance).name
 
 
 class PersonNode(GroupBase):
     def __init__(self):
         super().__init__()
-        self.inArmy = False
-
-
-"""
-food, mine, 
-"""
 
 
 class GroupNode(GroupBase):
     def __init__(self):
         super().__init__()
-        self.header = 0
-        self.teams = []  # 亲兵
+        self.groupAIId = 0
+
+        self.headerTroopId = 0
+        self.maxGovernTroopNu = 5  # 定期刷新
+        self.bill = 0
         self.subGroup: List[int] = []
 
-        self.ferries: List[int] = []
-        self.militaries: List[int] = []
+        self.troops: List[int] = []
         self.cities: List[int] = []
-        self.storages = []
+
+        self.attackTarget = -1, 0
+        self.nextActionBouts = 0
+
+    def update_bout(self, dn: 'PolityDataNode'):
+        general_t = dn.dataTable.generalTable
+
+        # gdp
+        for i in self.cities:
+            city_n = dn.cityDict[i]
+            city_d = dn.dataTable.cityLevelTable[city_n.tableRowId]
+            city_n.restPayPerBout = city_d.maxPayPerBout
+            if city_n.restFreezeBout > 0:
+                city_n.restFreezeBout -= 1
+                continue
+            self.bill += city_n.gdp
+
+        # maintain cost
+        for i in self.troops:
+            troop_n = dn.troopDict[i]
+            if troop_n.operaActed:
+                if troop_n.costPerBout > self.bill:
+                    troop_n.operaActed = True
+                    troop_n.isFrozen = True
+                    continue
+                self.bill -= troop_n.costPerBout
+                troop_n.operaActed = False
+                troop_n.isFrozen = False
+            else:
+                if troop_n.costPerBout * general_t.costScaleWhenUnActed > self.bill:
+                    troop_n.operaActed = True
+                    troop_n.isFrozen = True
+                    continue
+                self.bill -= troop_n.costPerBout * general_t.costScaleWhenUnActed
+                troop_n.operaActed = False
+                troop_n.isFrozen = False
+
+        # supply
+        for i in self.troops:
+            if self.bill <= 0:
+                break
+            troop_n = dn.troopDict[i]
+            if troop_n.isFrozen:
+                continue
+            country_id = dn.countryMap[troop_n.loc[1], troop_n.loc[0]]
+            if country_id == 0:
+                continue
+            if dn.cityDict[country_id].belong == self.id:
+                for military in troop_n.militaryForce:
+                    military_d = dn.dataTable.militaryTable[military.tableRowId]
+                    battle_d = dn.dataTable.battlePropertyTable[military_d.battleProperty]
+                    need_nu = battle_d.bloodValue - military.currentBlood
+                    if need_nu <= 0:
+                        continue
+                    if need_nu > battle_d.bloodValue * general_t.maxSupplyTroopRate:
+                        need_nu = battle_d.bloodValue * general_t.maxSupplyTroopRate
+                    cost_bill = military_d.costBill * need_nu
+                    if self.bill < cost_bill:
+                        self.bill = 0
+                        supply_nu = self.bill / military_d.costBill
+                    else:
+                        self.bill -= cost_bill
+                        supply_nu = cost_bill / military_d.costBill
+                    military.currentBlood += supply_nu
+                troop_n.refresh_property(dn.dataTable)
+
+        # # ai
+        # action: 发育、攻城
+        group_ai = dn.dataTable.groupAITable[self.groupAIId]
+        map_size = dn.map_size
+        # enlist troop
+        if self.bill >= group_ai.billMakeNewTroop and general_t.maxGovernTroopNu > len(self.troops):
+            # chose location
+            loc = random.choice(self.cities).locations[0]
+            for drt in [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]:
+                x_, y_ = drt[0] + loc[0], drt[1] + loc[1]
+                if x_ < 0 or y_ < 0 or x_ >= map_size[0] or y_ >= map_size[1]:
+                    continue
+                if (x_, y_) in dn.troopDict:
+                    continue
+                loc = x_, y_
+                break
+            else:
+                loc = None
+            # enlist
+            if loc is not None:
+                # total_cost = 0
+                troop_n = dn.make_troop(loc, random.choice(group_ai.troopLevels))
+                dn.appoint_troop(troop_n.id, self.id)
+                self.bill -= dn.dataTable.troopLevelTable[troop_n.tableRowId].cost_bill
+                # military_distribution = dn.dataTable.troopLevelTable[random.choice(group_ai.troopLevels)].distribution
+                # for k, v in military_distribution.items():
+                #     military_d = dn.dataTable.militaryTable[k]
+                #     total_cost += military_d.costBill * v
+                #     for j in range(v):
+                #         tmp_military = MilitaryNode()
+                #         tmp_military.tableRowId = military_d.id
+                #         tmp_military.currentBlood = dn.dataTable.battlePropertyTable[military_d.battleProperty]\
+                #             .bloodValue
+                #         troop_n.militaryForce.append(tmp_military)
+                # troop_n.refresh_property(dn.dataTable)
+                # self.bill -= total_cost
+
+        # begin attack
+        if self.attackTarget[0] < 0:
+            if group_ai.minAttackTroopNu <= len(self.troops):
+                # find target
+                target_locations = []
+                for k, v in dn.cityDict.idDict.items():
+                    if dn.is_enemy(self.flag, v.flag):
+                        target_locations.append(v.locations[0])
+
+                self.attackTarget = random.choice(target_locations)
+                self.nextActionBouts = group_ai.maxAttackBouts
+                for i in self.troops:
+                    troop_n = dn.troopDict[i]
+                    troop_n.moveTarget = self.attackTarget
+            else:
+                pass  # 继续发育
+
+        else:
+            self.nextActionBouts -= 1
+            # 取消行动
+            if self.nextActionBouts <= 0:
+                self.attackTarget = -1, 0
+                self.nextActionBouts = group_ai.maxWaitActionBouts
+                for i in self.troops:
+                    troop_n = dn.troopDict[i]
+                    troop_n.moveTarget = dn.cityDict[random.choice(self.cities)].locations[0]
 
 
 class RunTimeNode:
@@ -169,16 +253,16 @@ class PolityDataNode:
         # basic data
         self.terrainMap: numpy.ndarray = numpy.zeros((), numpy.uint8)
         self.trafficMap: numpy.ndarray = numpy.zeros((), numpy.uint8)
+        self.countryMap: numpy.ndarray = numpy.zeros((), numpy.uint8)
+
         self.resourceMap: numpy.ndarray = numpy.zeros((), numpy.int_)
         self.personDict = NameIdTableStructure[PersonNode]()
         self.cityDict = LocationsIdTableStructure[CityNode]()
-        self.storageDict = LocIdsTableStructure[StorageNode]()
-        self.teamDict = LocIdsTableStructure[TeamNode]()  # 间谍、小规模力量、团体
-        self.ferryDict = LocIdsTableStructure[FerryNode]()
-        self.troopDict = LocIdTableStructure[TroopNode]()
+
+        self.troopDict = LocIdTableStructure[TroopNode](open_kdtree=True)
+        self.peopleInConvey: Dict[int, Tuple[int, int, int, int]] = {}
 
         # group data
-        # self.buildingDict = LocIdTableStructure[BuildingNode]()
         self.groupDict = NameIdTableStructure[GroupNode]()
         self.topGroupEnemyShip: Set[Tuple[int, int]] = set()
         self.topGroups = []
@@ -223,21 +307,19 @@ class PolityDataNode:
 
         # make group & army &
         city_loc = list(city_loc)
-        group_road_mark = False
-        for i in range(2):
-            group_1 = rlt.make_group(city_loc[i])
+        for i in range(len(city_loc)):
+            group_1 = rlt.make_group(str(city_loc[i]))
+            group_1.flag = group_1.id
+            print(group_1.id, city_loc[i])
+            group_1.bill = 9000
             rlt.topGroups.append(group_1.id)
             rlt.appoint_city(rlt.cityDict[city_loc[i]].id, group_1.id)
-            if not group_road_mark:
-                army_1 = rlt.make_troop(city_loc[i])
+
+            if random.randint(0, 5) > 3:
+                army_1 = rlt.make_troop(city_loc[i], random.choice(
+                    rlt.dataTable.groupAITable[group_1.groupAIId].troopLevels))
                 army_1.name = str(army_1.id)
                 rlt.appoint_troop(army_1.id, group_1.id)
-                for j in [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]:
-                    tmp_loc = city_loc[i][0] + j[0], city_loc[i][1] + j[1]
-                    army_1 = rlt.make_troop(tmp_loc)
-                    army_1.name = str(army_1.id)
-                    rlt.appoint_troop(army_1.id, group_1.id)
-                group_road_mark = True
 
         # top group
         group_ids = list(rlt.groupDict.idDict.keys())
@@ -245,7 +327,21 @@ class PolityDataNode:
             for x in range(y+1, len(group_ids)):
                 rlt.topGroupEnemyShip.add((min(group_ids[y], group_ids[x]), max(group_ids[y], group_ids[x])))
 
-        # teams (wait for russionbear 's update)
+        # # make city troop
+        # for i in range(len(city_loc)):
+        #     group_1 = rlt.make_group(city_loc[i])
+        #     rlt.topGroups.append(group_1.id)
+        #     rlt.appoint_city(rlt.cityDict[city_loc[i]].id, group_1.id)
+        #
+        #     army_1 = rlt.make_troop(city_loc[i])
+        #     army_1.name = str(army_1.id)
+        #     rlt.appoint_troop(army_1.id, group_1.id)
+
+        # country map
+        rlt.countryMap = numpy.random.randint(0, 2, (map_size[1], map_size[0]), numpy.int_)
+
+        # resource
+        rlt.resourceMap = numpy.random.randint(0, 2, (map_size[1], map_size[0]), numpy.int_)
 
         return rlt
 
@@ -268,14 +364,11 @@ class PolityDataNode:
         city.id = self.cityDict.get_unique_id()
         city.tableRowId = tbi
         table = self.dataTable.cityLevelTable[tbi]
-        city.maxBlockNu = table.maxBlockNu
         for y in range(table.areaSize[1]):
             for x in range(table.areaSize[0]):
                 city.locations.append((y+loc[0], x+loc[1]))
-        city.population = table.population
-        city.baseFightingCapacity = table.baseFightingCapacity
         self.cityDict.add(city)
-        city.storageId = self.make_storage(loc).id
+        # city.storageId = self.make_storage(loc).id
         return city
 
     def del_city(self, id_):
@@ -300,39 +393,6 @@ class PolityDataNode:
 
         city.belong = t_id
 
-    def modify_building_nu(self, city_id, building, nu) -> bool:
-        if nu < 0:
-            nu = 0
-        building_d = self.dataTable.buildingTable[building]
-        city_n = self.cityDict[city_id]
-        made_cost = building_d.madeFrom
-        current_nu = city_n.buildings.get(building_d.name, 0)
-        need_nu = nu - current_nu
-        city_storage = self.storageDict[city_n.storageId].goods
-        if need_nu <= 0:
-            for k, v in made_cost:
-                if k not in city_storage:
-                    city_storage[k] = 0
-                city_storage[k] += abs(need_nu) * v * 0.6
-            city_n.buildings[building_d.name] = nu
-
-            city_n.adjust_demand_supply(self.dataTable)
-            return True
-        else:
-            for k, v in made_cost:
-                if k not in city_storage:
-                    return False
-                if city_storage[k] < abs(need_nu) * v:
-                    return False
-
-            city_n.buildings[building_d.name] = nu
-            for k, v in made_cost:
-                city_storage[k] -= v
-            city_n.adjust_demand_supply(self.dataTable)
-            return True
-
-    # ############# person
-
     def make_person(self, name=None):
         rlt = PersonNode()
         rlt.id = self.personDict.get_unique_id()
@@ -354,18 +414,12 @@ class PolityDataNode:
     def appoint_person(self, id_, t_id):
         person = self.personDict[id_]
         if person.belong != 0:
-            if person.inArmy:
-                staff = self.troopDict[person.belong].staff
-            else:
-                staff = self.teamDict[person.belong].staff
+            staff = self.troopDict[person.belong].staff
             if id_ in staff:
                 staff.remove(id_)
 
         if t_id != 0:
-            if person.inArmy:
-                team = self.troopDict[t_id]
-            else:
-                team = self.teamDict[t_id]
+            team = self.troopDict[t_id]
             staff = team.staff
             if id_ not in staff:
                 staff.append(id_)
@@ -375,64 +429,27 @@ class PolityDataNode:
 
         person.belong = t_id
 
-    def make_storage(self, loc):
-        storage = StorageNode()
-        storage.modifyTime = time.time()
-        storage.id = self.storageDict.get_unique_id()
-        storage.loc = loc
-        self.storageDict.add(storage)
-        return storage
-
-    # ############### team
-
-    def make_team(self, loc, person=False):
-        team = TeamNode()
-        team.id = self.teamDict.get_unique_id()
-        team.loc = loc
-        self.teamDict.add(team)
-        if person:
-            p = self.make_person()
-            self.appoint_person(p.id, team.id)
-        return team
-
-    def del_team(self, t):
-        self.appoint_team(t, 0)
-        team = self.teamDict[t]
-        for i in team.staff:
-            self.del_person(i)
-        del self.teamDict[t]
-
-    def appoint_team(self, id_, t_id):
-        team = self.teamDict[id_]
-        if team.belong != 0:
-            staff = self.groupDict[team.belong].teams
-            if id_ in staff:
-                staff.remove(id_)
-
-        if t_id != 0:
-            group = self.groupDict[t_id]
-            staff = group.teams
-            if id_ not in staff:
-                staff.append(id_)
-            team.flag = team.flag
-        else:
-            team.flag = 0
-
-        team.belong = t_id
-
-    def move_team(self, id_, new_loc):
-        self.teamDict.move_by_id(id_, new_loc)
-
     # ################# troop
-    def make_troop(self, loc, person=False):
-        team = TroopNode()
-        team.id = self.troopDict.get_unique_id()
-        team.loc = loc
-        self.troopDict.add(team)
+    def make_troop(self, loc, level_id, person=False):
+        troop = TroopNode()
+        troop.tableRowId = level_id
+        troop.id = self.troopDict.get_unique_id()
+        troop.loc = loc
+        self.troopDict.add(troop)
         if person:
             p = self.make_person()
-            self.appoint_person(p.id, team.id)
-        return team
+            self.appoint_person(p.id, troop.id)
+
+        distributions = self.dataTable.troopLevelTable[level_id].distribution
+        for k, v in distributions.items():
+            for i in range(v):
+                tmp_military = MilitaryNode()
+                tmp_military.tableRowId = self.dataTable.militaryTable[k].id
+                tmp_military.currentBlood = self.dataTable.battlePropertyTable[
+                    self.dataTable.militaryTable[k].battleProperty].bloodValue
+                troop.militaryForce.append(tmp_military)
+        troop.refresh_property(self.dataTable)
+        return troop
 
     def del_troop(self, t):
         self.appoint_troop(t, 0)
@@ -444,13 +461,13 @@ class PolityDataNode:
     def appoint_troop(self, id_, t_id):
         team = self.troopDict[id_]
         if team.belong != 0:
-            staff = self.groupDict[team.belong].militaries
+            staff = self.groupDict[team.belong].troops
             if id_ in staff:
                 staff.remove(id_)
 
         if t_id != 0:
             group = self.groupDict[t_id]
-            staff = group.militaries
+            staff = group.troops
             if id_ not in staff:
                 staff.append(id_)
             team.flag = team.flag
@@ -462,44 +479,8 @@ class PolityDataNode:
     def move_troop(self, id_, new_loc):
         self.troopDict.move_by_id(id_, new_loc)
 
-    # ################# ferry
-    def make_ferry(self, loc):
-        team = FerryNode()
-        team.id = self.ferryDict.get_unique_id()
-        team.loc = loc
-        self.ferryDict.add(team)
-        return team
-
-    def del_ferry(self, t):
-        self.appoint_troop(t, 0)
-        team = self.troopDict[t]
-        for i in team.staff:
-            self.del_person(i)
-        del self.troopDict[t]
-
-    def appoint_ferry(self, id_, t_id):
-        team = self.ferryDict[id_]
-        if team.belong != 0:
-            ferries = self.groupDict[team.belong].ferries
-            if id_ in ferries:
-                ferries.remove(id_)
-
-        if t_id != 0:
-            group = self.groupDict[t_id]
-            ferries = group.ferries
-            if id_ not in ferries:
-                ferries.append(id_)
-            team.flag = team.flag
-        else:
-            team.flag = 0
-
-        team.belong = t_id
-
-    def move_ferry(self, id_, new_loc):
-        self.ferryDict.move_by_id(id_, new_loc)
-
     # ############ group
-    def make_group(self, name=None):
+    def make_group(self, name=None, group_ai_id=None):
         tmp_n = GroupNode()
         tmp_n.id = self.groupDict.get_unique_id()
         if name is None:
@@ -512,14 +493,15 @@ class PolityDataNode:
             raise Exception("")
 
         tmp_n.flagId = tmp_n.id
+        if group_ai_id is None:
+            tmp_n.groupAIId = random.choice(list(self.dataTable.groupAITable.idDict.keys()))
+        else:
+            tmp_n.groupAIId = group_ai_id
         return tmp_n
 
     def del_group(self, id_):
         group = self.groupDict[id_]
-        self.del_team(group.header)
-        for i in group.teams:
-            self.del_team(i)
-        for i in group.militaries:
+        for i in group.troops:
             self.del_troop(i)
         for i in group.cities:
             self.appoint_city(i, 0)
@@ -556,8 +538,12 @@ class PolityDataNode:
                 tmp_v = tmp_v2
 
     # update
-    def update(self, delta_time):
-        pass  #
+    def update_bout(self):
+        for v in self.groupDict.idDict.values():
+            v.update_bout(self)
+
+    def count_troop_fight_rlt(self, atk_id, def_id):
+        pass
 
 
 # sub system

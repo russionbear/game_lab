@@ -6,6 +6,7 @@
 import random
 from bisect import bisect_left, bisect_right
 
+import kdtree
 import numpy
 import pandas
 from typing import Dict, TypeVar, Generic, Tuple, Type, List, Any, Set
@@ -96,16 +97,20 @@ class NameIdTableStructure(Generic[AnyT]):
 
 
 class LocIdTableStructure(Generic[AnyT]):
-    def __init__(self, t: AnyT | None = None):
+    def __init__(self, t: AnyT | None = None, open_kdtree=False):
         self.itemType: Type[AnyT] | None = type(t) if t is not None else None
         self.idDict: Dict[int, AnyT] = {}
         self.locDict: Dict[Tuple[int, int], AnyT] = {}
+        self.kdTree: kdtree.KDNode | None = None if not open_kdtree else kdtree.create(dimensions=2)
 
     def add(self, v: AnyT):
         if v.id in self.idDict or v.loc in self.locDict:
-            return False
+            raise Exception("LocIdTableStructure add error")
+            # return False
         self.idDict[v.id] = v
         self.locDict[v.loc] = v
+        if self.kdTree:
+            self.kdTree.add(v.loc)
         return True
 
     def move(self, o, n) -> bool:
@@ -118,7 +123,14 @@ class LocIdTableStructure(Generic[AnyT]):
         tmp = self.locDict[o]
         self.locDict[n] = tmp
         tmp.loc = n
+
+        if self.kdTree:
+            self.kdTree.add(n)
+
         del self.locDict[o]
+
+        if self.kdTree:
+            self.kdTree.remove(o)
         return True
 
     def move_by_id(self, id_, n) -> bool:
@@ -134,11 +146,11 @@ class LocIdTableStructure(Generic[AnyT]):
                 continue
             return new_id
 
-    def __setitem__(self, key, value: AnyT):
-        if value.id in self.idDict or value.loc in self.locDict:
-            raise Exception("LocIdTableStructure add error")
-        self.idDict[value.id] = value
-        self.locDict[value.loc] = value
+    # def __setitem__(self, key, value: AnyT):
+    #     if value.id in self.idDict or value.loc in self.locDict:
+    #         raise Exception("LocIdTableStructure add error")
+    #     self.idDict[value.id] = value
+    #     self.locDict[value.loc] = value
 
     def __contains__(self, item):
         if type(item) == int:
@@ -170,18 +182,23 @@ class LocIdTableStructure(Generic[AnyT]):
                 return
         del self.idDict[tmp.id]
         del self.locDict[tmp.loc]
+        if self.kdTree:
+            self.kdTree.remove(tmp.loc)
 
 
 class LocIdsTableStructure(Generic[AnyT]):
-    def __init__(self, t: AnyT | None = None):
+    def __init__(self, t: AnyT | None = None, open_kdtree=False):
         self.itemType: Type[AnyT] | None = type(t) if t is not None else None
         self.idDict: Dict[int, AnyT] = {}
         self.locDict: Dict[Tuple[int, int], Set[AnyT]] = {}
+        self.kdTree: kdtree.KDNode | None = None if not open_kdtree else kdtree.create(dimensions=2)
 
     def __in_loc(self, v):
         if v.loc not in self.locDict:
             s = set()
             self.locDict[v.loc] = s
+            if self.kdTree:
+                self.kdTree.add(v.loc)
         else:
             s = self.locDict[v.loc]
         s.add(v)
@@ -192,6 +209,8 @@ class LocIdsTableStructure(Generic[AnyT]):
         s = self.locDict[v.loc]
         s.remove(v)
         if not s:
+            if self.kdTree:
+                self.kdTree.remove(v.loc)
             del self.locDict[v.loc]
 
     def add(self, v: AnyT):
@@ -264,20 +283,25 @@ class LocIdsTableStructure(Generic[AnyT]):
 
 
 class LocationsIdTableStructure(Generic[AnyT]):
-    def __init__(self, t: AnyT | None = None):
+    def __init__(self, t: AnyT | None = None, open_kdtree=False):
         self.itemType: Type[AnyT] | None = type(t) if t is not None else None
         self.idDict: Dict[int, AnyT] = {}
         self.locDict: Dict[Tuple[int, int], AnyT] = {}
+        self.kdTree: kdtree.KDNode | None = None if not open_kdtree else kdtree.create(dimensions=2)
 
     def __in_loc(self, v):
         for i in v.locations:
             if i in self.locDict:
                 raise Exception('')
             self.locDict[i] = v
+            if self.kdTree:
+                self.kdTree.add(i)
 
     def __out_loc(self, v):
         for i in v.locations:
             del self.locDict[i]
+            if self.kdTree:
+                self.kdTree.remove(i)
 
     def add(self, v: AnyT):
         if v.id in self.idDict:
@@ -354,7 +378,8 @@ class BisectList(Generic[AnyT]):
         """
         l0 = list(map(self._key, self._list))
         index = bisect_left(l0, v2)
-        if index == -1 or index >= len(l0):
+        if l0[index] != v2:
+            # if index == -1 or index >= len(l0):
             return None
         return self._list[index]
 

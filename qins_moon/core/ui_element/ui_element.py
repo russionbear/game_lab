@@ -14,6 +14,17 @@ from qins_moon.core.interface.ui_element import IUIInterface
 
 
 class UserInterfaceBase(IUIInterface):
+    def __init__(self):
+        self.window: pygame_gui.core.UIElement | None = None
+
+    def show(self):
+        if self.window is not None:
+            self.window.show()
+
+    def hide(self):
+        if self.window is not None:
+            self.window.hide()
+
     def resize(self, suf, ui_manager):
         """
         初始化函数
@@ -67,6 +78,7 @@ class UserInterfaceManager:
         self.blitWindow: pygame.Surface | None = None
         self.uiManager: pygame_gui.UIManager | None = None
         self.currentUI: IUIInterface | None = None
+        self.language = 'zh'
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is not None:
@@ -83,7 +95,7 @@ class UserInterfaceManager:
 
     def resize(self, suf: pygame.Surface):
         self.blitWindow = suf
-        self.uiManager = pygame_gui.UIManager(suf.get_size())
+        self.uiManager = pygame_gui.UIManager(suf.get_size(), starting_language=self.language)
         if self.currentUI is not None:
             self.currentUI.resize(suf, self.uiManager)
 
@@ -91,7 +103,8 @@ class UserInterfaceManager:
         self.uiManager.update(delta_time)
 
     def draw(self):
-        self.uiManager.draw_ui(self.blitWindow)
+        if self.currentUI:
+            self.uiManager.draw_ui(self.blitWindow)
 
     def event(self, e0):
         self.uiManager.process_events(e0)
@@ -122,4 +135,3 @@ class UIMenuBar:
 
     def _handle_item_click(self):
         pass
-

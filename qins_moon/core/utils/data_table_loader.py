@@ -128,6 +128,8 @@ class DataTableLoader:
         for row_name, row in table.iterrows():
             tmp = cls()
             for k in tmp.__dict__.keys():
+                if re.match('^_.*$', k) is not None:
+                    continue
                 if k not in table.keys():
                     raise IndexError(f"{k} not in {list(table.keys())}")
                 tmp.__setattr__(k, row[k])

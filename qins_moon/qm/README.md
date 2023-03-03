@@ -29,6 +29,8 @@
 #### polity: 
 - no traffic
 - virtual bill without goods
+- pure warChess
+- auto recover military
 
 ### ui state
 - army map

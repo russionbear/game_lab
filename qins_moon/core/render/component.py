@@ -159,7 +159,16 @@ class AnimeRenderComponent(RenderBase):
         self.__currentAnimeIndex = 0
         self._baseAnimeState = []
         self._isTmpAnimeStateFinished = True
+        self._handleTmpAnimeStateFinished = None
         self.anchor = 0, 0
+
+    def sub_tmp_anime_state_finished(self, v):
+        self._handleTmpAnimeStateFinished = v
+
+    def pub_tmp_anime_state_finished(self):
+        self._isTmpAnimeStateFinished = True
+        if self._handleTmpAnimeStateFinished:
+            self._handleTmpAnimeStateFinished()
 
     @property
     def base_anime_state(self):
@@ -178,6 +187,9 @@ class AnimeRenderComponent(RenderBase):
         self._currentAnimeState = value
         self.__currentAnimeIndex = 0
         self._isTmpAnimeStateFinished = False
+
+        if self.interval == 0:
+            self.pub_tmp_anime_state_finished()
 
     @property
     def is_tmp_anime_finished(self):
@@ -221,8 +233,8 @@ class AnimeRenderComponent(RenderBase):
                     if self.__currentAnimeIndex == len(self._currentAnimeState) - 1:
                         self.__currentAnimeIndex = 0
                         if self._currentAnimeState != self._baseAnimeState:
-                            self._isTmpAnimeStateFinished = True
                             self._currentAnimeState = self._baseAnimeState
+                            self.pub_tmp_anime_state_finished()
                     else:
                         self.__currentAnimeIndex = (self.__currentAnimeIndex+1) % len(self._currentAnimeState)
                         self.action = self._currentAnimeState[self.__currentAnimeIndex]
@@ -473,6 +485,7 @@ class CoverRenderComponent(RenderBase):
         self.textStorage: Dict[Any, Tuple[str, Any, list[tuple]]] = {}
         self.hidden = False
         self.showGridLine = False
+        self.anchor = 0.5, suf_size[1] / suf_size[0] / 2
 
     def get_surface(self) -> pygame.Surface:
         if not self.hidden:
@@ -552,6 +565,10 @@ class CoverRenderComponent(RenderBase):
         self.arcStorage.clear()
         self.textStorage.clear()
         self.re_render()
+
+    def draw(self):
+        pass
+        super().draw()
 
 
 class GridCoverRenderComponent(RenderBase):

@@ -146,11 +146,13 @@ class LocIdTableStructure(Generic[AnyT]):
                 continue
             return new_id
 
-    # def __setitem__(self, key, value: AnyT):
-    #     if value.id in self.idDict or value.loc in self.locDict:
-    #         raise Exception("LocIdTableStructure add error")
-    #     self.idDict[value.id] = value
-    #     self.locDict[value.loc] = value
+    def __setitem__(self, key, value: AnyT):
+        if value.id in self.idDict or value.loc in self.locDict:
+            del self[value.id]
+        self.idDict[value.id] = value
+        self.locDict[value.loc] = value
+        if self.kdTree:
+            self.kdTree.add(value.loc)
 
     def __contains__(self, item):
         if type(item) == int:
@@ -376,14 +378,16 @@ class BisectList(Generic[AnyT]):
         :param v2:
         :return:
         """
+        if not self._list:  # len == 0时的错误 在其他地方没改
+            return None
         l0 = list(map(self._key, self._list))
         index = bisect_left(l0, v2)
-        if l0[index] != v2:
+        if index >= len(l0) or l0[index] != v2:
             # if index == -1 or index >= len(l0):
             return None
         return self._list[index]
 
-    def index_of(self, value):
+    def index_of(self, value):  # 有问题
         l0 = list(map(self._key, self._list))
         index = -1
         v2 = self._key(value)
@@ -396,11 +400,17 @@ class BisectList(Generic[AnyT]):
             break
         return index
 
+    def index_of2(self, value):
+        for i1, i in enumerate(self._list):
+            if i == value:
+                return i1
+        return -1
+
     def __contains__(self, item):
         return self.index_of(item) != -1
 
     def remove(self, e):
-        index = self.index_of(e)
+        index = self.index_of2(e)
         if index != -1:
             self._list.pop(index)
 

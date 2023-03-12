@@ -340,7 +340,7 @@ class MathTool:
                         continue
                     if x_1 < 0 or y_1 < 0 or x_1 >= width or y_1 >= height:
                         continue
-                    _outer_points.add((y_1, y_1))
+                    _outer_points.add((x_1, y_1))
             return _outer_points
 
         border_points = set()
@@ -353,7 +353,7 @@ class MathTool:
                     continue
                 if x_ < 0 or y_ < 0 or x_ >= width or y_ >= height:
                     continue
-                outer_points.add((y_, y_))
+                outer_points.add((x_, y_))
                 border_points.add(loc)
 
         if min_dis <= 1:

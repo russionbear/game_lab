@@ -125,6 +125,7 @@ class DataTableLoader:
 
     @staticmethod
     def load_table_from_df(table: pandas.DataFrame, cls: Type[TableRowBase], rlt: NameIdTableStructure):
+        # print(table)
         for row_name, row in table.iterrows():
             tmp = cls()
             for k in tmp.__dict__.keys():
@@ -154,3 +155,61 @@ class DataTableLoader:
             if k not in tmp:
                 raise IndexError(f'{k} not exited {tmp}')
             rlt.__setattr__(k, tmp[k])
+
+
+class DataTableMaker:
+    @staticmethod
+    def make_table(root_table, path, overwrite=False):
+        if not overwrite and os.path.exists(path+'.xlsx'):
+            raise Exception("file exited")
+        with pandas.ExcelWriter(path+'.xlsx') as writer:
+            for table_name, table_value in root_table.__dict__.items():
+                if re.match(r'^.*Table$', table_name) is None:
+                    continue
+                t_name = table_name[0].upper()+table_name[1:-5]
+                v = None
+                if isinstance(table_value, NameIdTableStructure):
+                    v = DataTableMaker.make_table_sheet(table_value.itemType())
+                elif isinstance(table_value, dict):
+                    if 'list' in table_name.lower():
+                        v = DataTableMaker.make_list_sheet(table_value)
+                    elif 'dict' in table_name.lower():
+                        v = DataTableMaker.make_list_sheet(table_value)
+                elif table_name.lower().startswith("general"):
+                    v = DataTableMaker.make_general_sheet(table_value)
+                # print(v, '\n123:', t_name)
+                if v is None:
+                    print('contine:', t_name)
+                    continue
+                v.to_excel(writer, sheet_name=t_name, index=False, header=False)
+
+    @staticmethod
+    def make_general_sheet(d):
+        keys = [i for i in d.__dict__.keys() if i[0] != '_']
+        l0 = [['tableType'], ['general'], [], [], ['', '', 'key', 'value']]
+        for i in keys:
+            l0.append(['', '', i, d.__dict__[i] if isinstance(d.__dict__[i], (int, float)) else str(d.__dict__[i])])
+
+        df = pandas.DataFrame(l0)
+        return df
+
+    @staticmethod
+    def make_dict_sheet(d):
+        rlt = [['tableType'], ['dict'], [], []]
+        df = pandas.DataFrame(rlt)
+        return df
+
+    @staticmethod
+    def make_list_sheet(d):
+        rlt = [['tableType'], ['names'], [], []]
+        df = pandas.DataFrame(rlt)
+        return df
+
+    @staticmethod
+    def make_table_sheet(d):
+        # print(d.__dict__)
+        keys = [i for i in d.__dict__.keys() if i[0] != '_']
+        l0 = [[], [], [], [], keys]
+        # print(l0)
+        df = pandas.DataFrame(l0)
+        return df

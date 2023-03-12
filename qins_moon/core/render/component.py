@@ -443,6 +443,7 @@ class JoinedLayerSurfaceRenderComponent(RenderBase):
                 loc[0]*self.config.MAP_BLOCK_SIZE[0], loc[1]*self.config.MAP_BLOCK_SIZE[1],
                 *self.config.MAP_BLOCK_SIZE)
             for i in range(self.layerNu):
+                self.surfaces[i].fill((0, 0, 0, 0), rect)
                 for v in self.joinedSurfaces.values():
                     self.surfaces[i].blit(v.surfaces[i].subsurface(rect), (rect.x, rect.y))
 

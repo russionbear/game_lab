@@ -233,7 +233,7 @@ class HomeUIState(BattleUIStateBase):
             elif self.leftMouseCircledUnits:
                 self.clickedMilitary = self.leftMouseCircledUnits[0]
                 self.mng.switch_state(BattleUIStates.moveArea)
-            elif self.lastClickedGridArea[2:] in self.mng.rootEntity.dataNodeRoot.buildingDict:
+            elif self.lastClickedGridArea[2:] in self.mng.rootEntity.dataNodeRoot.buildingMap:
                 self.clickedBuilding = self.lastClickedGridArea[2:]
                 self.mng.switch_state(BattleUIStates.buyUnit)
             # # 单击逻辑

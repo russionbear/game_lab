@@ -22,6 +22,7 @@ class IConfigInterface:
         # ########## 路径相关
         self.TABLE_STORAGE_PATH = r'E:\workspace\game_lab\qins_moon\res\tables'
         self.RESOURCE_ROOT_PATH = r'E:\workspace\game_lab\qins_moon\res\resource'
+        self.MAP_STORAGE_PATH = r'E:\workspace\game_lab\qins_moon\res\map'
 
         # ######### 显示相关
         self.MAP_BLOCK_SIZE = 50, 50

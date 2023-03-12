@@ -14,7 +14,7 @@ class EntityBase:
         # 　＃　这个id跟unity ecs 框架中的不同，可以随意设置
         #  # note：如果该id与其所有兄弟的id都相同且它有很多兄弟，那BisectList 就不快了，最好避免一下，给他赋个随机数什么的
         self.id = 0
-        self._parent: 'EntityBase' | None = None
+        self._parent: 'EntityBase | None' = None
         self._children = BisectList[EntityBase](key=lambda a: a.id)
 
     @property

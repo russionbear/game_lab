@@ -34,11 +34,14 @@ class IRenderInterface:
         :param scene:
         :return:
         """
-        if self._scene != scene:
-            if self._scene is not None:
-                self._scene.remove_child(self)
+        old_scene = self._scene
+        if old_scene != scene:
             self._scene = scene
-            self._scene.add_child(self)
+            if old_scene is not None:
+                old_scene.remove_child(self)
+
+            if scene is not None:
+                self._scene.add_child(self)
 
     def get_surface(self) -> pygame.Surface:
         pass

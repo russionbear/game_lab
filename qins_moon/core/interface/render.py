@@ -65,7 +65,6 @@ class ISceneInterface:
     同时具有相机的功能
     """
     def __init__(self):
-        super().__init__()
         self._blitWindow: pygame.Surface | None = None
         self._children = BisectList[IRenderInterface](key=lambda a: a.render_order)
         self.loc = 0, 0
@@ -74,6 +73,9 @@ class ISceneInterface:
 
     def set_blit_window(self, w):
         self._blitWindow = w
+
+    def get_blit_window(self):
+        return self._blitWindow
 
     def set_location(self, loc):
         self.loc = loc
@@ -116,27 +118,41 @@ class ISceneInterface:
         for v in self._children:
             v.draw()
 
+        if self.scale != 1:
+            suf = pygame.transform.smoothscale(suf, (suf.get_width()*self.scale, suf.get_height()*self.scale))
+
         size = suf.get_size()
         loc = self.loc[0] - size[0] // 2, self.loc[1] - size[1] // 2
-        if self.scale != 1:
-            screes_center = pygame.display.get_surface().get_rect().center
-            loc = screes_center[0] + (loc[0]-screes_center[0])*self.scale, \
-                screes_center[1] + (loc[1]-screes_center[1])*self.scale
-            suf = pygame.transform.smoothscale(suf, (suf.get_width()*self.scale, suf.get_height()*self.scale))
+        # if self.scale != 1:
+        #     screes_center = pygame.display.get_surface().get_rect().center
+        #     loc = screes_center[0] + (loc[0]-screes_center[0])*self.scale, \
+        #         screes_center[1] + (loc[1]-screes_center[1])*self.scale
+        #     suf = pygame.transform.smoothscale(suf, (suf.get_width()*self.scale, suf.get_height()*self.scale))
         self._blitWindow.blit(suf, loc)
 
     def get_mouse_loc_in_scene(self):
-        suf = self.get_surface()
-        size = suf.get_size()
-        loc = self.loc[0] - size[0] // 2, self.loc[1] - size[1] // 2
-        if self.scale != 1:
-            screes_center = pygame.display.get_surface().get_rect().center
-            loc = screes_center[0] + (loc[0]-screes_center[0])*self.scale, \
-                screes_center[1] + (loc[1]-screes_center[1])*self.scale
-        mouse_size = pygame.mouse.get_pos()
-        rlt = mouse_size[0] - loc[0], mouse_size[1] - loc[1]
-        rlt = rlt[0] / self.scale, rlt[1] / self.scale
+        mouse_pos = pygame.mouse.get_pos()
+        offset = self.get_render_offset()
+        rlt = mouse_pos[0] - offset[0], mouse_pos[1] - offset[1]
+
         return rlt
+
+    def get_render_offset(self):
+        suf = self.get_surface()
+        size = (suf.get_width()*self.scale, suf.get_height()*self.scale)
+        loc = self.loc[0] - size[0] // 2, self.loc[1] - size[1] // 2
+        return loc
+
+    # def get_prim_render_offset(self):
+    #     size = self.get_surface().get_size()
+    #     loc = self.loc[0] - size[0] // 2, self.loc[1] - size[1] // 2
+    #     return loc
+    #
+    # def get_screen_render_pos(self, pos):
+    #     offset = self.loc
+    #     o = self.get_render_offset()
+    #
+    #     return (pos[0]-offset[0]) / self.scale + offset[0] - o[0], (pos[1]-offset[1]) / self.scale + offset[1] - o[1]
 
     def event(self, e0: pygame.event.Event):
         pass

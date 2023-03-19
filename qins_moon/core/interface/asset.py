@@ -103,7 +103,10 @@ class IAssetPackageInterface:
         # if v not in self.sprite:
         #     print(f'error kye {v}, {action}')
         #     return AssetManager.get_instance()[DEFAULT_RESOURCE_PACKAGE].get_sprite('error')
-        return self.sprite[os.path.join(v, action)]
+        value = os.path.join(v, action)
+        if value not in self.sprite:
+            value = os.path.join(v, '')
+        return self.sprite[value]
 
     def release(self):
         pass

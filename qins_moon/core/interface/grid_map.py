@@ -81,10 +81,10 @@ class IGridMovementInterface:
 
 class IGridNavigationInterface:
     """
-    此grid nav component 定义的世界不允许任意物体穿透, 即同图层不允许覆盖;
+    此grid nav entity 定义的世界不允许任意物体穿透, 即同图层不允许覆盖;
     """
 
-    def __init__(self, size, layers):
+    def __init__(self, size, layers: list):
         self._size = size
         # ####### _geoMap 必须再init里初始化，之后不可setter操作该属性
         self._layerMapDict: Dict[int, numpy.ndarray] = {i: numpy.zeros((size[1], size[0])) for i in layers}

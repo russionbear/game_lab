@@ -1,0 +1,8 @@
+"" :
+  imageRegex: "0"
+
+h :
+  imageRegex: "1"
+
+v :
+  imageRegex: "2"

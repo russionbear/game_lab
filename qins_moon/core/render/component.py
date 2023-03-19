@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
-# @FileName  :component.py
+# @FileName  :entity.py
 # @Time      :07/02/2023
 # @Author    :russionbear
 # @Function  :function
@@ -49,6 +49,10 @@ class InfoRenderComponent(RenderBase):
 
     @blood.setter
     def blood(self, value):
+        if value < 0:
+            value = 0
+        elif value > 1:
+            value = 1
         self._blood = value
         if not self.showBloodBar:
             return
@@ -152,20 +156,22 @@ class AnimeRenderComponent(RenderBase):
         self.interval = 0
         self.__currentInterval = 0
         self.__currentImageIndex = 0
-        self.action = ""
         self._speed = 1.0
 
-        self._currentAnimeState = []
         self.__currentAnimeIndex = 0
-        self._baseAnimeState = []
+        self._baseAnimeState = ['']
+        self._currentAnimeState = self._baseAnimeState
         self._isTmpAnimeStateFinished = True
         self._handleTmpAnimeStateFinished = None
         self.anchor = 0, 0
+        self.action = ""
 
     def sub_tmp_anime_state_finished(self, v):
         self._handleTmpAnimeStateFinished = v
 
     def pub_tmp_anime_state_finished(self):
+        if self._isTmpAnimeStateFinished:
+            return
         self._isTmpAnimeStateFinished = True
         if self._handleTmpAnimeStateFinished:
             self._handleTmpAnimeStateFinished()
@@ -178,6 +184,11 @@ class AnimeRenderComponent(RenderBase):
     def base_anime_state(self, value):
         self._baseAnimeState = value
 
+        self._currentAnimeState = self._baseAnimeState
+        self.__currentAnimeIndex = 0
+        self._isTmpAnimeStateFinished = True
+        self.action = self._currentAnimeState[0]
+
     @property
     def anime_state(self):
         return self._currentAnimeState
@@ -187,9 +198,10 @@ class AnimeRenderComponent(RenderBase):
         self._currentAnimeState = value
         self.__currentAnimeIndex = 0
         self._isTmpAnimeStateFinished = False
+        self.action = self._currentAnimeState[0]
 
-        if self.interval == 0:
-            self.pub_tmp_anime_state_finished()
+        # if self.interval == 0:
+        #     self.pub_tmp_anime_state_finished()
 
     @property
     def is_tmp_anime_finished(self):
@@ -212,7 +224,7 @@ class AnimeRenderComponent(RenderBase):
     def action(self, value):
         self._currentAction = value
         sp = self.assetPkg.get_sprite(self.modelName, value)
-        self.interval = sp.interval
+        self.interval = sp.interval if sp.interval != 0 else 0.8
         self.__currentImageIndex = 0
         self._images = [pygame.transform.smoothscale(i, sp.legalSize).convert_alpha() for i in sp.images]
         self.anchor = sp.anchor
@@ -222,8 +234,8 @@ class AnimeRenderComponent(RenderBase):
 
     def update(self, delta_time):
         super().update(delta_time)
-        if self.interval == 0:
-            return
+        # if self.interval == 0:
+        #     return
         self.__currentInterval += delta_time * self._speed
         if self.__currentInterval > self.interval:
             self.__currentInterval = 0
@@ -231,15 +243,17 @@ class AnimeRenderComponent(RenderBase):
                 self.__currentImageIndex = 0
                 if self._currentAnimeState:  # anime state start
                     if self.__currentAnimeIndex == len(self._currentAnimeState) - 1:
-                        self.__currentAnimeIndex = 0
                         if self._currentAnimeState != self._baseAnimeState:
                             self._currentAnimeState = self._baseAnimeState
                             self.pub_tmp_anime_state_finished()
+
+                        self.__currentAnimeIndex = 0
+                        self.action = self._currentAnimeState[self.__currentAnimeIndex]
                     else:
                         self.__currentAnimeIndex = (self.__currentAnimeIndex+1) % len(self._currentAnimeState)
                         self.action = self._currentAnimeState[self.__currentAnimeIndex]
             else:
-                self.__currentImageIndex = (self.__currentInterval+1) % len(self._images)
+                self.__currentImageIndex = (self.__currentImageIndex+1) % len(self._images)
 
 
 class JoinedSurfaceRuleBase:

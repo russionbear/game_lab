@@ -3,6 +3,8 @@
 # @author: russionbear
 # @file: map_edit.py
 # @time: 3/11/2023 1:24 PM
+# 这个map_edit已过时
+
 import os
 from typing import Dict, Type
 import pickle
@@ -153,29 +155,33 @@ class TerrainLayerEntityBase(EntityBase):
 
 class TerrainLayerEntity(TerrainLayerEntityBase):
     def __init__(self, config, pkg, union_render, table: NameIdTableStructure, data_node: AssaultSuitsDataNode):
-        super().__init__(config, pkg, union_render, table, config.terrainPrefix, data_node.terrainMap, layer=1)
+        super().__init__(config, pkg, union_render, table, config.terrainPrefix, data_node.currentWorldNode.terrainMap,
+                         layer=1)
         self.rootDataNode: AssaultSuitsDataNode = data_node
 
     def refresh_node(self, loc, v):
-        self._refresh_node(loc, v, self.rootDataNode.terrainMap)
+        self._refresh_node(loc, v, self.rootDataNode.currentWorldNode.terrainMap)
 
 
 class BuildingLayerEntity(TerrainLayerEntityBase):
     def __init__(self, config, pkg, union_render, table: NameIdTableStructure, data_node: AssaultSuitsDataNode):
-        super().__init__(config, pkg, union_render, table, config.buildingPrefix, data_node.buildingMap, layer=2)
+        super().__init__(
+            config, pkg, union_render, table, config.buildingPrefix, data_node.currentWorldNode.buildingMap,
+            layer=2)
         self.rootDataNode: AssaultSuitsDataNode = data_node
 
     def refresh_node(self, loc, v):
-        self._refresh_node(loc, v, self.rootDataNode.buildingMap)
+        self._refresh_node(loc, v, self.rootDataNode.currentWorldNode.buildingMap)
 
 
 class DecorationLayerEntity(TerrainLayerEntityBase):
     def __init__(self, config, pkg, union_render, table: NameIdTableStructure, data_node: AssaultSuitsDataNode):
-        super().__init__(config, pkg, union_render, table, config.decorationPrefix, data_node.decorationMap, layer=3)
+        super().__init__(config, pkg, union_render, table, config.decorationPrefix,
+                         data_node.currentWorldNode.decorationMap, layer=3)
         self.rootDataNode: AssaultSuitsDataNode = data_node
 
     def refresh_node(self, loc, v):
-        self._refresh_node(loc, v, self.rootDataNode.decorationMap)
+        self._refresh_node(loc, v, self.rootDataNode.currentWorldNode.decorationMap)
 
 
 # dyn layer
@@ -255,21 +261,23 @@ class DynUnitEntityBase(EntityBase):
 
 class UnderGoodsEntity(DynUnitEntityBase):
     def __init__(self, id_, scene, data_node, pkg, config):
-        super().__init__(id_, scene, data_node, pkg, config, 11, data_node.dataTable.generalTable.underGoodsEditModelName)
+        super().__init__(id_, scene, data_node, pkg, config, 11,
+                         data_node.dataTable.generalTable.underGoodsEditModelName)
         self.refresh_info()
 
     def refresh_info(self):
-        tmp_d = self.rootDataNode.underGoodsDict[self.id]
+        tmp_d = self.rootDataNode.currentWorldNode.underGoodsDict[self.id]
         self._refresh_info(tmp_d.name, tmp_d.loc)
 
 
 class MonsterEntity(DynUnitEntityBase):
     def __init__(self, id_, scene, data_node, pkg, config):
-        super().__init__(id_, scene, data_node, pkg, config, 12, data_node.dataTable.generalTable.underGoodsEditModelName)
+        super().__init__(id_, scene, data_node, pkg, config, 12,
+                         data_node.dataTable.generalTable.underGoodsEditModelName)
         self.refresh_info()
 
     def refresh_info(self):
-        tmp_d = self.rootDataNode.monsterDistribution[self.id]
+        tmp_d = self.rootDataNode.currentWorldNode.monsterDistribution[self.id]
         self._refresh_info(tmp_d.name, tmp_d.loc)
 
 
@@ -279,17 +287,18 @@ class TankEntity(DynUnitEntityBase):
         self.refresh_info()
 
     def refresh_info(self):
-        tmp_d = self.rootDataNode.tankDict[self.id]
+        tmp_d = self.rootDataNode.currentWorldNode.tankSoftDict[self.id]
         self._refresh_info(tmp_d.name, tmp_d.loc)
 
 
 class MessengerEntity(DynUnitEntityBase):
     def __init__(self, id_, scene, data_node, pkg, config):
-        super().__init__(id_, scene, data_node, pkg, config, 14, data_node.dataTable.generalTable.messengerEditModelName)
+        super().__init__(id_, scene, data_node, pkg, config, 14,
+                         data_node.dataTable.generalTable.messengerEditModelName)
         self.refresh_info()
 
     def refresh_info(self):
-        tmp_d = self.rootDataNode.messengerDict[self.id]
+        tmp_d = self.rootDataNode.currentWorldNode.messengerDict[self.id]
         self._refresh_info(tmp_d.name, tmp_d.loc)
 
 
@@ -348,34 +357,38 @@ class GridDynLayerEntityBase(EntityBase):
 
 class GridUnderGoodsLayerEntity(GridDynLayerEntityBase):
     def __init__(self, scene, data_node, pkg, config):
-        super().__init__(scene, data_node, pkg, config, 11, data_node.underGoodsDict.idDict, UnderGoodsEntity)
+        super().__init__(scene, data_node, pkg, config, 11, data_node.currentWorldNode.underGoodsDict.idDict,
+                         UnderGoodsEntity)
 
     def refresh_node(self, id_):
-        self._refresh_node(id_, self.rootDataNode.underGoodsDict)
+        self._refresh_node(id_, self.rootDataNode.currentWorldNode.underGoodsDict)
 
 
 class GridMonsterLayerEntity(GridDynLayerEntityBase):
     def __init__(self, scene, data_node, pkg, config):
-        super().__init__(scene, data_node, pkg, config, 12, data_node.monsterDistribution.idDict, MonsterEntity)
+        super().__init__(scene, data_node, pkg, config, 12, data_node.currentWorldNode.monsterDistribution.idDict,
+                         MonsterEntity)
 
     def refresh_node(self, id_):
-        self._refresh_node(id_, self.rootDataNode.monsterDistribution)
+        self._refresh_node(id_, self.rootDataNode.currentWorldNode.monsterDistribution)
 
 
 class GridTankLayerEntity(GridDynLayerEntityBase):
     def __init__(self, scene, data_node, pkg, config):
-        super().__init__(scene, data_node, pkg, config, 13, data_node.tankSoftDict.idDict, TankEntity)
+        super().__init__(scene, data_node, pkg, config, 13, data_node.currentWorldNode.tankSoftDict.idDict,
+                         TankEntity)
 
     def refresh_node(self, id_):
-        self._refresh_node(id_, self.rootDataNode.tankSoftDict)
+        self._refresh_node(id_, self.rootDataNode.currentWorldNode.tankSoftDict)
 
 
 class GridMessengerLayerEntity(GridDynLayerEntityBase):
     def __init__(self, scene, data_node, pkg, config):
-        super().__init__(scene, data_node, pkg, config, 14, data_node.messengerDict.idDict, MessengerEntity)
+        super().__init__(scene, data_node, pkg, config, 14, data_node.currentWorldNode.messengerDict.idDict,
+                         MessengerEntity)
 
     def refresh_node(self, id_):
-        self._refresh_node(id_, self.rootDataNode.messengerDict)
+        self._refresh_node(id_, self.rootDataNode.currentWorldNode.messengerDict)
 
 
 # root entity
@@ -409,7 +422,7 @@ class MapEditRootEntity(RootEntityBase):
 
     def init_map(self):
         # user_flag = 100
-        map_size = self.rootDataNode.map_size
+        map_size = self.rootDataNode.currentWorldNode.map_size
 
         # world scene
         self.worldScene = MapEditScene((map_size[0] * self.config.MAP_BLOCK_SIZE[0],
@@ -642,7 +655,8 @@ class HomePolityUS(MapEditUIStateBase):
             if self.homeUI.layerButton.visible or abs(e0.button-2) != 1:
                 return
             dn = self.mngr.rootEntity.rootDataNode
-            circle_area = self.mngr.rootEntity.worldScene.get_current_legal_circle_grid_area(dn.map_size)
+            circle_area = self.mngr.rootEntity.worldScene.get_current_legal_circle_grid_area(
+                dn.currentWorldNode.map_size)
 
             t_name = self.homeUI.layerButton.selected_option
             v_name = self.homeUI.layerItemButton.selected_option
@@ -656,7 +670,7 @@ class HomePolityUS(MapEditUIStateBase):
                     v = dn.dataTable.terrainTable[v_name].id
                 for x in range(circle_area[0], circle_area[2]+1):
                     for y in range(circle_area[1], circle_area[3]+1):
-                        dn.terrainMap[y, x] = v
+                        dn.currentWorldNode.terrainMap[y, x] = v
                         self.mngr.rootEntity.terrainLayer.refresh_node((x, y), v)
 
             elif t_name == 'building':
@@ -667,7 +681,7 @@ class HomePolityUS(MapEditUIStateBase):
 
                 for x in range(circle_area[0], circle_area[2]+1):
                     for y in range(circle_area[1], circle_area[3]+1):
-                        dn.buildingMap[y, x] = v
+                        dn.currentWorldNode.buildingMap[y, x] = v
                         self.mngr.rootEntity.buildingLayer.refresh_node((x, y), v)
 
             elif t_name == 'decoration':
@@ -677,7 +691,7 @@ class HomePolityUS(MapEditUIStateBase):
                     v = self.mngr.rootEntity.rootDataNode.dataTable.decorationTable[t_name+'.'+v_name].id
                 for x in range(circle_area[0], circle_area[2]+1):
                     for y in range(circle_area[1], circle_area[3]+1):
-                        dn.decorationMap[y, x] = v
+                        dn.currentWorldNode.decorationMap[y, x] = v
                         self.mngr.rootEntity.decorationLayer.refresh_node((x, y), v)
 
             elif t_name == 'underGoods':
@@ -687,17 +701,17 @@ class HomePolityUS(MapEditUIStateBase):
                     v = self.mngr.rootEntity.rootDataNode.dataTable.underGoodsTable[v_name].id
                 for x in range(circle_area[0], circle_area[2]+1):
                     for y in range(circle_area[1], circle_area[3]+1):
-                        tmp_d = dn.underGoodsDict[(x, y)]
+                        tmp_d = dn.currentWorldNode.underGoodsDict[(x, y)]
                         if v == 0:
                             if tmp_d is None:
                                 continue
                             else:
-                                del dn.underGoodsDict[(x, y)]
+                                del dn.currentWorldNode.underGoodsDict[(x, y)]
                         else:
                             if tmp_d is not None:
-                                del dn.underGoodsDict[(x, y)]
+                                del dn.currentWorldNode.underGoodsDict[(x, y)]
                             tmp_d = dn.make_under_goods(0, v, (x, y))
-                            dn.underGoodsDict[(x, y)] = tmp_d
+                            dn.currentWorldNode.underGoodsDict[(x, y)] = tmp_d
 
                         self.mngr.rootEntity.underGoodsLayer.refresh_node(tmp_d.id)
 
@@ -708,17 +722,17 @@ class HomePolityUS(MapEditUIStateBase):
                     v = self.mngr.rootEntity.rootDataNode.dataTable.monsterGroupTable[v_name].id
                 for x in range(circle_area[0], circle_area[2] + 1):
                     for y in range(circle_area[1], circle_area[3] + 1):
-                        tmp_d = dn.monsterDistribution[(x, y)]
+                        tmp_d = dn.currentWorldNode.monsterDistribution[(x, y)]
                         if v == 0:
                             if tmp_d is None:
                                 continue
                             else:
-                                del dn.monsterDistribution[(x, y)]
+                                del dn.currentWorldNode.monsterDistribution[(x, y)]
                         else:
                             if tmp_d is not None:
-                                del dn.monsterDistribution[(x, y)]
+                                del dn.currentWorldNode.monsterDistribution[(x, y)]
                             tmp_d = dn.make_monster_distribution(0, v, (x, y))
-                            dn.monsterDistribution[(x, y)] = tmp_d
+                            dn.currentWorldNode.monsterDistribution[(x, y)] = tmp_d
 
                         self.mngr.rootEntity.monsterLayer.refresh_node(tmp_d.id)
 
@@ -729,20 +743,20 @@ class HomePolityUS(MapEditUIStateBase):
                     v = self.mngr.rootEntity.rootDataNode.dataTable.wildTankTable[v_name].id
                 for x in range(circle_area[0], circle_area[2] + 1):
                     for y in range(circle_area[1], circle_area[3] + 1):
-                        tmp_d = dn.tankSoftDict[(x, y)]
+                        tmp_d = dn.currentWorldNode.tankSoftDict[(x, y)]
                         if v == 0:
                             if tmp_d is None:
                                 continue
                             else:
-                                del dn.tankSoftDict[(x, y)]
+                                del dn.currentWorldNode.tankSoftDict[(x, y)]
                                 del dn.tankDict[(x, y)]
                         else:
                             if tmp_d is not None:
-                                del dn.tankSoftDict[(x, y)]
+                                del dn.currentWorldNode.tankSoftDict[(x, y)]
                                 del dn.tankDict[(x, y)]
                             tmp_d = dn.make_tank(0, v, (x, y))
                             dn.tankDict[(x, y)] = tmp_d
-                            dn.tankSoftDict[(x, y)] = tmp_d
+                            dn.currentWorldNode.tankSoftDict[(x, y)] = tmp_d
 
                         self.mngr.rootEntity.tankLayer.refresh_node(tmp_d.id)
 
@@ -753,17 +767,17 @@ class HomePolityUS(MapEditUIStateBase):
                     v = self.mngr.rootEntity.rootDataNode.dataTable.messengerTable[v_name].id
                 for x in range(circle_area[0], circle_area[2] + 1):
                     for y in range(circle_area[1], circle_area[3] + 1):
-                        tmp_d = dn.messengerDict[(x, y)]
+                        tmp_d = dn.currentWorldNode.messengerDict[(x, y)]
                         if v == 0:
                             if tmp_d is None:
                                 continue
                             else:
-                                del dn.messengerDict[(x, y)]
+                                del dn.currentWorldNode.messengerDict[(x, y)]
                         else:
                             if tmp_d is not None:
-                                del dn.messengerDict[(x, y)]
+                                del dn.currentWorldNode.messengerDict[(x, y)]
                             tmp_d = dn.make_messenger(0, v, (x, y))
-                            dn.messengerDict[(x, y)] = tmp_d
+                            dn.currentWorldNode.messengerDict[(x, y)] = tmp_d
 
                         self.mngr.rootEntity.messengerLayer.refresh_node(tmp_d.id)
 

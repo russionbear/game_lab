@@ -124,38 +124,48 @@ class SceneCameraBase:
 class SceneCircleBase:
     def __init__(self, scene):
         self.scene: SceneBase = scene
-        self.p = None
+        self.startCircleP = None
         self.currentCircleArea = None
         self.lastCircleArea = None  # beginX, beginY, endX, endY
 
     def get_current_circle_area(self):
         mouse_pos = pygame.mouse.get_pos()
-        if self.p is not None:
-            start = min(self.p[0], mouse_pos[0]), min(self.p[1], mouse_pos[1])
-            end = max(self.p[0], mouse_pos[0]), max(self.p[1], mouse_pos[1])
+        if self.startCircleP is not None:
+            start = min(self.startCircleP[0], mouse_pos[0]), min(self.startCircleP[1], mouse_pos[1])
+            end = max(self.startCircleP[0], mouse_pos[0]), max(self.startCircleP[1], mouse_pos[1])
             return *start, *end
         return *mouse_pos, *mouse_pos
 
+    def get_scene_circle_area(self):
+        offset = self.scene.get_render_offset()
+        area = self.get_current_circle_area()
+        return area[0] - offset[0], area[1] - offset[1], area[2] - offset[0], area[3] - offset[1]
+
+    def get_scene_circle_grid_area(self, block_size):
+        area = self.get_scene_circle_area()
+        return area[0] // block_size[0], area[1] // block_size[1], area[2] // block_size[0], area[3] // block_size[1]
+
     def event(self, e0: pygame.event.Event):
         if e0.type == pygame.MOUSEBUTTONDOWN:
-            self.p = e0.pos
+            self.startCircleP = e0.pos
+            self.currentCircleArea = *self.startCircleP, * self.startCircleP
         elif e0.type == pygame.MOUSEBUTTONUP:
-            self.p = None
+            self.startCircleP = None
             self.lastCircleArea = self.currentCircleArea
             self.currentCircleArea = None
         elif e0.type == pygame.MOUSEMOTION:
-            if self.p is not None:
-                start = min(self.p[0], e0.pos[0]), min(self.p[1], e0.pos[1])
-                end = max(self.p[0], e0.pos[0]), max(self.p[1], e0.pos[1])
+            if self.startCircleP is not None:
+                start = min(self.startCircleP[0], e0.pos[0]), min(self.startCircleP[1], e0.pos[1])
+                end = max(self.startCircleP[0], e0.pos[0]), max(self.startCircleP[1], e0.pos[1])
                 self.currentCircleArea = *start, *end
 
     def draw(self):
         if self.currentCircleArea is not None:
-            # print(self.currentCircleArea, '90')
-            pygame.draw.rect(self.scene.get_surface(), 'green',
-                             pygame.Rect(*self.currentCircleArea[:2],
-                                         self.currentCircleArea[2] - self.currentCircleArea[0],
-                                         self.currentCircleArea[3] - self.currentCircleArea[1]), 3)
+            circle_area = self.currentCircleArea
+            pygame.draw.rect(self.scene.get_blit_window(), 'green',
+                             pygame.Rect(*circle_area[:2],
+                                         circle_area[2] - circle_area[0],
+                                         circle_area[3] - circle_area[1]), 3)
 
 
 class SceneManager(RegistryBase[SceneBase]):

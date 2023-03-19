@@ -95,6 +95,10 @@ class NameIdTableStructure(Generic[AnyT]):
         del self.idDict[tmp.id]
         del self.nameDict[tmp.name]
 
+    def clear(self):
+        self.idDict.clear()
+        self.nameDict.clear()
+
 
 class LocIdTableStructure(Generic[AnyT]):
     def __init__(self, t: AnyT | None = None, open_kdtree=False):
@@ -186,6 +190,12 @@ class LocIdTableStructure(Generic[AnyT]):
         del self.locDict[tmp.loc]
         if self.kdTree:
             self.kdTree.remove(tmp.loc)
+
+    def clear(self):
+        self.idDict.clear()
+        self.locDict.clear()
+        if self.kdTree:
+            self.kdTree = kdtree.create(dimensions=2)
 
 
 class LocIdsTableStructure(Generic[AnyT]):
@@ -283,6 +293,12 @@ class LocIdsTableStructure(Generic[AnyT]):
         del self.idDict[tmp.id]
         self.__out_loc(tmp)
 
+    def clear(self):
+        self.idDict.clear()
+        self.locDict.clear()
+        if self.kdTree:
+            self.kdTree = kdtree.create(dimensions=2)
+
 
 class LocationsIdTableStructure(Generic[AnyT]):
     def __init__(self, t: AnyT | None = None, open_kdtree=False):
@@ -355,6 +371,12 @@ class LocationsIdTableStructure(Generic[AnyT]):
                 return
         del self.idDict[tmp.id]
         self.__out_loc(tmp)
+
+    def clear(self):
+        self.idDict.clear()
+        self.locDict.clear()
+        if self.kdTree:
+            self.kdTree = kdtree.create(dimensions=2)
 
 
 class BisectList(Generic[AnyT]):
@@ -429,6 +451,9 @@ class BisectList(Generic[AnyT]):
         :return:
         """
         return self._list
+
+    def clear(self):
+        self._list.clear()
 
 
 class TableRowBase:

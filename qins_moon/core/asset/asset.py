@@ -33,7 +33,8 @@ class SpriteAsset(ISpriteAssetInterface):
     navBlockSize,
     isTerrain
     """
-    @staticmethod
+
+    @staticmethod  # dropped
     def load_sprite(path, config: IConfigInterface):
         rlt = ISpriteAssetInterface()
 
@@ -103,10 +104,10 @@ class SpriteAsset(ISpriteAssetInterface):
             sprite.interval = action_info.get("interval", 1.2 if len(sprite.images) > 1 else 0)
             sprite.legalSize = action_info.get("legalSize", (1, 1))
             sprite.legalSize = sprite.legalSize[0] * config.MAP_BLOCK_SIZE[0], \
-                sprite.legalSize[1] * config.MAP_BLOCK_SIZE[1]
+                               sprite.legalSize[1] * config.MAP_BLOCK_SIZE[1]
             if 'navBlockSize' not in action_info:
-                sprite.navBlockSize = math.ceil(sprite.legalSize[0]/config.MAP_BLOCK_SIZE[0]), \
-                    math.ceil(sprite.legalSize[1]/config.MAP_BLOCK_SIZE[1])
+                sprite.navBlockSize = math.ceil(sprite.legalSize[0] / config.MAP_BLOCK_SIZE[0]), \
+                    math.ceil(sprite.legalSize[1] / config.MAP_BLOCK_SIZE[1])
             else:
                 sprite.navBlockSize = tuple(action_info['navBlockSize'])
 
@@ -119,7 +120,7 @@ class SpriteAsset(ISpriteAssetInterface):
                         (sprite.legalSize[0], -sprite.legalSize[1])
                     ]
                 else:
-                    sprite.shapePoints = [max(sprite.legalSize)//2]
+                    sprite.shapePoints = [max(sprite.legalSize) // 2]
             else:
                 sprite.shapePoints = action_info['shapePoints']
 
@@ -177,7 +178,8 @@ class AssetPackage(IAssetPackageInterface):
             if joined_surface_rule is None:
                 joined_surface_rule = {}
             for k, v in joined_surface_rule.items():
-                n_l = [({(int(k1.split('_')[0]), int(k1.split('_')[1])): v1 for k1, v1 in rule.items()}, rlt.get_sprite(k, s0))
+                n_l = [({(int(k1.split('_')[0]), int(k1.split('_')[1])): v1 for k1, v1 in rule.items()},
+                        rlt.get_sprite(k, s0))
                        for rule, s0 in v]
                 rlt.modelJoinedSurfaceRule[k] = n_l
 

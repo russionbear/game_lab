@@ -1,0 +1,24 @@
+? ''
+:
+  imageRegex: none
+  interval: 1.2
+
+none:
+  imageRegex: none
+  interval: 1.2
+
+red:
+  imageRegex: red
+  interval: 1.2
+
+blue:
+  imageRegex: blue
+  interval: 1.2
+
+yellow:
+  imageRegex: yellow
+  interval: 1.2
+
+green:
+  imageRegex: green
+  interval: 1.2
